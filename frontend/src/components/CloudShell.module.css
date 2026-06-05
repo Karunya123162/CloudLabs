@@ -1,0 +1,274 @@
+/* ── CSS variables (scoped to shell) ── */
+.shell {
+  --sh-bg:      #0d1117;
+  --sh-bar:     #161b22;
+  --sh-border:  #30363d;
+  --sh-ps1:     #3fb950;
+  --sh-out:     #e6edf3;
+  --sh-info:    #8b949e;
+  --sh-err:     #f85149;
+  --sh-cmd:     #e6edf3;
+
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 600;
+  position: fixed; /* keep fixed for layout */
+  isolation: isolate; /* new stacking context for the boot overlay */
+  height: 320px;            /* overridden by inline style */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--sh-bg);
+  border-top: 1px solid var(--sh-border);
+  box-shadow: 0 -6px 32px rgba(0,0,0,.55);
+  font-family: 'SFMono-Regular', 'Cascadia Code', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sh-out);
+  user-select: text;
+}
+
+/* ── Drag grip ── */
+.grip {
+  height: 4px;
+  flex-shrink: 0;
+  cursor: ns-resize;
+  background: transparent;
+  transition: background 0.15s;
+}
+.grip:hover { background: #0073bb; }
+
+/* ── Header bar ── */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: var(--sh-bar);
+  border-bottom: 1px solid var(--sh-border);
+  flex-shrink: 0;
+  user-select: none;
+}
+.dots { display: flex; gap: 6px; align-items: center; }
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-block;
+}
+.barTitle {
+  font-size: 0.78rem;
+  color: var(--sh-info);
+  flex: 1;
+  text-align: center;
+}
+.barRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shortcuts {
+  font-size: 0.7rem;
+  color: #484f58;
+}
+.closeX {
+  background: none;
+  border: none;
+  color: var(--sh-info);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+.closeX:hover { background: var(--sh-border); color: var(--sh-out); }
+
+/* ── Spinner ── */
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--sh-border);
+  border-top-color: var(--sh-ps1);
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Scrollable output ── */
+.output {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  cursor: text;
+}
+.output::-webkit-scrollbar { width: 5px; }
+.output::-webkit-scrollbar-track { background: transparent; }
+.output::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+/* ── Single output row ── */
+.row {
+  display: block;
+  white-space: pre;
+  overflow-x: auto;
+  min-height: 1.6em;
+  line-height: 1.6;
+}
+.row::-webkit-scrollbar { height: 0; }
+
+/* prompt + command on one line */
+.ps1    { color: var(--sh-ps1); user-select: none; white-space: pre; }
+.cmdText { color: var(--sh-cmd); }
+
+/* ── Pinned input row ── */
+.inputRow {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 5px 16px 8px;
+  border-top: 1px solid var(--sh-border);
+  background: var(--sh-bg);
+  cursor: text;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--sh-cmd);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  caret-color: var(--sh-ps1);
+}
+.blink {
+  color: var(--sh-ps1);
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Boot / Connecting overlay ── */
+.bootOverlay {
+  position: absolute;
+  inset: 0;
+  background: var(--sh-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  animation: bootFadeIn 0.25s ease;
+}
+@keyframes bootFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.bootBox {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(480px, 90%);
+}
+
+.bootLogo {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.bootPrompt { color: var(--sh-ps1); white-space: pre; font-size: 0.9rem; }
+.bootCmd    { color: var(--sh-out); font-size: 0.9rem; }
+
+.bootLines {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.bootLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  color: var(--sh-info);
+  animation: bootLineIn 0.2s ease;
+}
+@keyframes bootLineIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.bootIcon { font-size: 0.8rem; flex-shrink: 0; }
+.bootIconSpin {
+  color: #f0883e;
+  display: inline-block;
+  animation: bootSpin 0.9s linear infinite;
+}
+.bootIconDone { color: var(--sh-ps1); }
+@keyframes bootSpin { to { transform: rotate(360deg); } }
+
+.bootBar {
+  height: 2px;
+  background: var(--sh-border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.bootBarFill {
+  height: 100%;
+  background: var(--sh-ps1);
+  border-radius: 2px;
+  animation: bootProgress 2s ease-in-out forwards;
+}
+@keyframes bootProgress {
+  0%   { width: 0%; }
+  60%  { width: 75%; }
+  100% { width: 100%; }
+}
+
+.exitBarFill {
+  height: 100%;
+  background: #f85149;
+  border-radius: 2px;
+  animation: exitProgress 1.6s ease-in forwards;
+}
+@keyframes exitProgress {
+  0%   { width: 100%; }
+  100% { width: 0%; }
+}
+
+/* ── Help block ── */
+.helpBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 8px;
+  padding: 12px 16px;
+  background: #161b22;
+  border: 1px solid var(--sh-border);
+  border-radius: 6px;
+}
+.helpTitle {
+  color: var(--sh-out);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.helpGroup { display: flex; flex-direction: column; gap: 3px; }
+.helpGroupTitle {
+  color: #f0883e;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 2px 0 4px;
+}
+.helpRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  line-height: 1.7;
+}
+.helpCmd  { color: #79c0ff; white-space: nowrap; font-size: 0.85em; }
+.helpSep  { color: #484f58; flex-shrink: 0; }
+.helpDesc { color: var(--sh-info); }

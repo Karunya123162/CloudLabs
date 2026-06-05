@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p frontend/src/components frontend/src/pages frontend/src/hooks frontend/src/services frontend/src/context frontend/src/utils frontend/src/assets/images frontend/src/assets/styles frontend/public)",
+      "Bash(mkdir -p backend/src/controllers backend/src/routes backend/src/models backend/src/middleware backend/src/services backend/src/utils backend/src/config backend/src/db/migrations backend/src/db/seeds)",
+      "Bash(npm install *)",
+      "PowerShell(docker compose up -d)"
+    ]
+  }
+}

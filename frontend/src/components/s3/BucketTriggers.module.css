@@ -1,0 +1,177 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px 24px;
+  background: #f2f3f3;
+}
+
+.flow {
+  background: #232f3e;
+  border-radius: 6px;
+  padding: 20px 24px;
+}
+
+.flowTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8c9bb5;
+  margin-bottom: 12px;
+}
+
+.flowSteps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flowRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flowStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  background: #37475a;
+  border-radius: 6px;
+  min-width: 88px;
+  text-align: center;
+}
+
+.flowIcon {
+  font-size: 1.2rem;
+}
+
+.flowLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.flowSub {
+  font-size: 0.69rem;
+  color: #8c9bb5;
+}
+
+.flowArrow {
+  color: #ff9900;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #d5dbdb;
+  border-radius: 6px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #16191f;
+}
+
+.cardSub {
+  font-size: 0.74rem;
+  color: #879596;
+}
+
+.cardDesc {
+  font-size: 0.8rem;
+  color: #545b64;
+  line-height: 1.55;
+}
+
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.example {
+  background: #0d1117;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.exLang {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #8b949e;
+  padding: 4px 10px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  display: block;
+}
+
+.exCode {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: monospace;
+  font-size: 0.76rem;
+  color: #e6edf3;
+  white-space: pre;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+.note {
+  display: flex;
+  gap: 8px;
+  background: #f0f8ff;
+  border: 1px solid #b8daff;
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-size: 0.82rem;
+}
+
+.noteIcon {
+  color: #0073bb;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.noteCode {
+  background: #e8f4fb;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #0073bb;
+  font-family: monospace;
+}
