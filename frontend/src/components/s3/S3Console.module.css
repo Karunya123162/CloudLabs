@@ -1279,3 +1279,264 @@
 .ruleSectionHead {
   font-size: 0.82rem; font-weight: 700; color: #16191f;
 }
+
+/* ── Light mode overrides ─────────────────────── */
+:global([data-theme="light"]) .console,
+:global([data-theme="light"]) .consoleWrap { background: var(--c-bg); color: var(--c-text); }
+:global([data-theme="light"]) .sidebar,
+:global([data-theme="light"]) .bucketSidebar { background: var(--c-sidebar); border-right-color: var(--c-border); }
+:global([data-theme="light"]) .sidebarTitle { color: var(--c-muted); border-bottom-color: var(--c-border); }
+:global([data-theme="light"]) .navItem { color: var(--c-muted); }
+:global([data-theme="light"]) .navItem:hover { background: var(--c-row-hover); color: var(--c-text); }
+:global([data-theme="light"]) .navItemActive,
+:global([data-theme="light"]) .navItemActive:hover { background: #fff7ed; color: #92400e; border-left-color: #f59e0b; }
+:global([data-theme="light"]) .main { background: var(--c-bg); }
+:global([data-theme="light"]) .header,
+:global([data-theme="light"]) .bucketDetailHeader { background: var(--c-header); border-bottom-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .toolbar,
+:global([data-theme="light"]) .actionsBar { background: var(--c-header); border-bottom-color: var(--c-border); }
+:global([data-theme="light"]) .table { background: var(--c-header); }
+:global([data-theme="light"]) .thead,
+:global([data-theme="light"]) .th { background: var(--c-row-alt); color: var(--c-muted); border-color: var(--c-border); }
+:global([data-theme="light"]) .td { color: var(--c-text); border-color: var(--c-border-2); }
+:global([data-theme="light"]) .tr:hover .td,
+:global([data-theme="light"]) .row:hover { background: var(--c-row-hover); }
+:global([data-theme="light"]) .trSelected .td,
+:global([data-theme="light"]) .rowSelected { background: var(--c-row-sel); }
+:global([data-theme="light"]) .empty,
+:global([data-theme="light"]) .emptyState { color: var(--c-muted); }
+:global([data-theme="light"]) .errorBanner { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+:global([data-theme="light"]) .input,
+:global([data-theme="light"]) .searchInput,
+:global([data-theme="light"]) .filterInput { background: var(--c-input); border-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .input::placeholder,
+:global([data-theme="light"]) .searchInput::placeholder { color: var(--c-muted); }
+:global([data-theme="light"]) .modal,
+:global([data-theme="light"]) .modalOverlay { background: rgba(0,0,0,0.45); }
+:global([data-theme="light"]) .modalBox,
+:global([data-theme="light"]) .modalContent,
+:global([data-theme="light"]) .modalPanel {
+  background: var(--c-modal);
+  border-color: var(--c-border);
+  color: var(--c-text);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+:global([data-theme="light"]) .modalHead,
+:global([data-theme="light"]) .modalHeader { border-bottom-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .modalTitle { color: var(--c-text); }
+:global([data-theme="light"]) .modalFoot,
+:global([data-theme="light"]) .modalFooter { border-top-color: var(--c-border); background: var(--c-row-alt); }
+:global([data-theme="light"]) .bucketDetailLayout { background: var(--c-bg); }
+:global([data-theme="light"]) .bucketDetailContent { background: var(--c-header); }
+:global([data-theme="light"]) .bucketNav { background: var(--c-sidebar); border-right-color: var(--c-border); }
+:global([data-theme="light"]) .bucketNavItem { color: var(--c-muted); }
+:global([data-theme="light"]) .bucketNavItem:hover { background: var(--c-row-hover); color: var(--c-text); }
+:global([data-theme="light"]) .bucketNavItemActive { background: #fff7ed; color: #92400e; border-left-color: #f59e0b; }
+:global([data-theme="light"]) .sectionCard,
+:global([data-theme="light"]) .cbSection,
+:global([data-theme="light"]) .propSection { background: var(--c-card); border-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .sectionTitle,
+:global([data-theme="light"]) .cbSectionTitle,
+:global([data-theme="light"]) .propTitle { color: var(--c-text); }
+:global([data-theme="light"]) .label,
+:global([data-theme="light"]) .fieldLabel { color: var(--c-muted); }
+:global([data-theme="light"]) .value,
+:global([data-theme="light"]) .fieldValue { color: var(--c-text); }
+:global([data-theme="light"]) .code,
+:global([data-theme="light"]) .codeBlock { background: var(--c-row-alt); color: var(--c-text); border-color: var(--c-border); }
+:global([data-theme="light"]) .textarea,
+:global([data-theme="light"]) .policyEditor { background: var(--c-input); color: var(--c-text); border-color: var(--c-border); }
+:global([data-theme="light"]) .btn,
+:global([data-theme="light"]) .btnGhost { border-color: var(--c-border); color: var(--c-text); background: transparent; }
+:global([data-theme="light"]) .btnGhost:hover { background: var(--c-row-alt); }
+:global([data-theme="light"]) .breadcrumb,
+:global([data-theme="light"]) .breadcrumbSep { color: var(--c-muted); }
+:global([data-theme="light"]) .breadcrumbLink { color: var(--c-link); }
+:global([data-theme="light"]) .spinner { border-top-color: var(--c-link); border-color: var(--c-border-2); }
+:global([data-theme="light"]) .tag,
+:global([data-theme="light"]) .chip { background: var(--c-row-alt); border-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .select { background: var(--c-input); border-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .cbRadioRow { border-color: var(--c-border); color: var(--c-text); }
+:global([data-theme="light"]) .cbRadioRowActive { background: #fff7ed; border-color: #f59e0b; }
+:global([data-theme="light"]) .cbSectionHead { border-bottom-color: var(--c-border); background: var(--c-row-alt); }
+
+/* ══════════════════════════════════════════════════════════
+   DARK MODE OVERRIDES  (base styles are light/AWS-style)
+══════════════════════════════════════════════════════════ */
+:global([data-theme="dark"]) .console { background: var(--c-bg); color: var(--c-text); }
+
+/* ── Bucket list area ── */
+:global([data-theme="dark"]) .tableWrap { background: var(--c-card); border-color: var(--c-border); }
+:global([data-theme="dark"]) .tableToolbar { background: var(--c-header); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .tableCount { color: var(--c-text); }
+:global([data-theme="dark"]) .tableSearch { background: var(--c-input); border-color: var(--c-border); }
+:global([data-theme="dark"]) .tableSearch input { color: var(--c-text); }
+:global([data-theme="dark"]) .tableSearch input::placeholder { color: var(--c-muted); }
+:global([data-theme="dark"]) .refreshBtn { border-color: var(--c-border); }
+:global([data-theme="dark"]) .refreshBtn:hover { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .table th { background: var(--c-row-alt); color: var(--c-muted); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .table td { color: var(--c-text); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .table tbody tr:hover td { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .trSelected td { background: var(--c-row-sel) !important; }
+:global([data-theme="dark"]) .bucketLink { color: var(--c-link); }
+:global([data-theme="dark"]) .tdCenter,
+:global([data-theme="dark"]) .tdEmpty { color: var(--c-muted); }
+:global([data-theme="dark"]) .versioningBadge { color: var(--c-muted); }
+:global([data-theme="dark"]) .oldBadge { background: #21262d; color: var(--c-muted); border-color: var(--c-border); }
+
+/* ── Bucket detail layout ── */
+:global([data-theme="dark"]) .bucketDetailHead { background: var(--c-header); }
+:global([data-theme="dark"]) .bucketDetailMeta { color: var(--c-muted); }
+:global([data-theme="dark"]) .bucketDetailLayout { background: var(--c-bg); }
+:global([data-theme="dark"]) .bucketDetailContent { background: var(--c-bg); }
+
+/* ── Sidebar nav ── */
+:global([data-theme="dark"]) .bucketNav { background: var(--c-sidebar); border-right-color: var(--c-border); }
+:global([data-theme="dark"]) .bucketNav::-webkit-scrollbar-thumb { background: var(--c-border); }
+:global([data-theme="dark"]) .bucketNavItem { color: var(--c-muted); }
+:global([data-theme="dark"]) .bucketNavItem:hover { background: var(--c-row-hover); color: var(--c-text); }
+:global([data-theme="dark"]) .bucketNavItemActive { color: #58a6ff !important; border-left-color: #f59e0b; background: #1a2030; }
+:global([data-theme="dark"]) .bucketNavGroupActive { color: var(--c-text) !important; }
+:global([data-theme="dark"]) .bucketNavCaret { color: var(--c-muted); }
+:global([data-theme="dark"]) .bucketNavChildren { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .bucketNavChild { color: var(--c-muted); }
+:global([data-theme="dark"]) .bucketNavChild:hover { background: var(--c-row-hover); color: var(--c-text); }
+:global([data-theme="dark"]) .bucketNavChildActive { color: #58a6ff !important; border-left-color: #f59e0b; background: #1a2030 !important; }
+
+/* ── Breadcrumb ── */
+:global([data-theme="dark"]) .breadcrumb { background: var(--c-header); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .breadLink { color: var(--c-link); }
+:global([data-theme="dark"]) .breadSep { color: var(--c-muted); }
+:global([data-theme="dark"]) .breadCurrent { color: var(--c-text); }
+
+/* ── View head ── */
+:global([data-theme="dark"]) .viewTitle { color: var(--c-text); }
+
+/* ── Tabs ── */
+:global([data-theme="dark"]) .tabs { background: var(--c-header); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .tab { color: var(--c-muted); }
+:global([data-theme="dark"]) .tab:hover { color: var(--c-text); }
+:global([data-theme="dark"]) .tabActive { color: var(--c-link) !important; border-bottom-color: var(--c-link); }
+
+/* ── Tab action bar ── */
+:global([data-theme="dark"]) .tabContent { background: var(--c-bg); }
+
+/* ── Buttons ── */
+:global([data-theme="dark"]) .btnSecondary { background: var(--c-card); color: var(--c-text); border-color: var(--c-border); }
+:global([data-theme="dark"]) .btnSecondary:hover:not(:disabled) { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .btnToggle { background: var(--c-card); color: var(--c-muted); border-color: var(--c-border); }
+:global([data-theme="dark"]) .btnToggle:hover { background: var(--c-row-hover); border-color: var(--c-link); color: var(--c-link); }
+:global([data-theme="dark"]) .btnToggleOn { background: #1a2540; border-color: var(--c-link); color: var(--c-link); }
+:global([data-theme="dark"]) .linkBtn { color: var(--c-link); }
+:global([data-theme="dark"]) .editBtn { background: var(--c-card); color: var(--c-link); border-color: var(--c-link); }
+:global([data-theme="dark"]) .editBtn:hover:not(:disabled) { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .cbAddTagBtn { border-color: var(--c-link); color: var(--c-link); }
+:global([data-theme="dark"]) .cbAddTagBtn:hover { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .infoLink { color: var(--c-link); }
+:global([data-theme="dark"]) .objNameLink { color: var(--c-link); }
+
+/* ── Properties section ── */
+:global([data-theme="dark"]) .propSection { background: var(--c-card); border-color: var(--c-border); }
+:global([data-theme="dark"]) .propSectionHead { background: var(--c-header); border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .propTitle { color: var(--c-text); }
+:global([data-theme="dark"]) .propRow { color: var(--c-text); }
+:global([data-theme="dark"]) .propKey { color: var(--c-muted); }
+:global([data-theme="dark"]) .propHint { color: var(--c-muted); }
+:global([data-theme="dark"]) .blockRow { color: var(--c-text); }
+:global([data-theme="dark"]) .checkRow { color: var(--c-text); }
+:global([data-theme="dark"]) .checkLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .checkSub { color: var(--c-muted); }
+:global([data-theme="dark"]) .checkRowEdit { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .masterCheck { background: var(--c-row-alt); border-color: var(--c-border); }
+:global([data-theme="dark"]) .masterLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .placeholder { color: var(--c-muted); }
+:global([data-theme="dark"]) .optLabel { color: var(--c-muted); }
+:global([data-theme="dark"]) .websiteUrl { color: var(--c-link); }
+
+/* ── Radio rows ── */
+:global([data-theme="dark"]) .radioRow { border-color: var(--c-border); }
+:global([data-theme="dark"]) .radioRow:hover { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .radioLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .radioSub { color: var(--c-muted); }
+
+/* ── Policy editor ── */
+:global([data-theme="dark"]) .policyEditor { background: #0d1117; color: #c9d1d9; border-color: var(--c-border); }
+:global([data-theme="dark"]) .policyEditor:focus { border-color: var(--c-link); }
+
+/* ── Modals ── */
+:global([data-theme="dark"]) .modal { background: var(--c-modal); border-radius: 4px; }
+:global([data-theme="dark"]) .cbModal { background: var(--c-modal); }
+:global([data-theme="dark"]) .cbHead { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .cbTitle { color: var(--c-text); }
+:global([data-theme="dark"]) .cbBody { background: var(--c-bg); }
+:global([data-theme="dark"]) .cbBody::-webkit-scrollbar-thumb { background: var(--c-border); }
+:global([data-theme="dark"]) .cbFoot { background: var(--c-modal); border-top-color: var(--c-border); }
+:global([data-theme="dark"]) .cbSection { background: var(--c-card); }
+:global([data-theme="dark"]) .cbSectionHead { background: var(--c-header); border-bottom-color: var(--c-border); border-top-color: var(--c-border); }
+:global([data-theme="dark"]) .cbSectionTitle { color: var(--c-text); }
+:global([data-theme="dark"]) .cbSectionNote { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbInfoBtn { color: var(--c-link); border-color: var(--c-link); background: transparent; }
+:global([data-theme="dark"]) .cbStaticVal { color: var(--c-text); }
+:global([data-theme="dark"]) .cbRadioRow { background: var(--c-card); border-color: var(--c-border); }
+:global([data-theme="dark"]) .cbRadioRow:hover { border-color: var(--c-link); background: var(--c-row-hover); }
+:global([data-theme="dark"]) .cbRadioRowActive { border-color: var(--c-link); background: #1a2540; }
+:global([data-theme="dark"]) .cbRadioLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .cbRadioDes { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbCheckMaster { background: var(--c-row-alt); border-color: var(--c-border); }
+:global([data-theme="dark"]) .cbCheckLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .cbCheckSub { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbCheckSub2 { border-color: var(--c-border); }
+:global([data-theme="dark"]) .cbTagHead { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbTagRemove { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbOwnershipNote { background: #1a2540; border-color: #1e4078; }
+:global([data-theme="dark"]) .cbOwnershipGroupTitle { color: var(--c-muted); }
+:global([data-theme="dark"]) .cbWarnBox { background: #2d2305; border-color: #78580f; color: #fde68a; }
+
+/* ── Modal inputs ── */
+:global([data-theme="dark"]) .modal input[type="text"],
+:global([data-theme="dark"]) .modal input[type="email"],
+:global([data-theme="dark"]) .modal input[type="number"],
+:global([data-theme="dark"]) .modal select,
+:global([data-theme="dark"]) .modal textarea {
+  background: var(--c-input);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+:global([data-theme="dark"]) .cbModal input[type="text"],
+:global([data-theme="dark"]) .cbModal input[type="number"],
+:global([data-theme="dark"]) .cbModal select,
+:global([data-theme="dark"]) .cbModal textarea {
+  background: var(--c-input);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+
+/* ── Delete confirm modal ── */
+:global([data-theme="dark"]) .deleteModal { background: var(--c-modal); color: var(--c-text); }
+:global([data-theme="dark"]) .deleteModalHead { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .deleteModalBody { color: var(--c-muted); }
+
+/* ── URL panel ── */
+:global([data-theme="dark"]) .urlPanel { background: var(--c-card); border-color: var(--c-border); }
+:global([data-theme="dark"]) .urlPanelHead { background: #1a2540; border-bottom-color: #1e4078; }
+:global([data-theme="dark"]) .urlPanelTitle { color: var(--c-link); }
+:global([data-theme="dark"]) .urlPanelClose { color: var(--c-muted); }
+:global([data-theme="dark"]) .urlPanelClose:hover { background: var(--c-row-hover); color: var(--c-text); }
+:global([data-theme="dark"]) .urlSection { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .urlSectionTitle { color: var(--c-muted); }
+:global([data-theme="dark"]) .urlSectionHint { color: var(--c-muted); }
+
+/* ── Spinner ── */
+:global([data-theme="dark"]) .spinner { border-color: var(--c-border); border-top-color: var(--c-link); }
+
+/* ── Error / success banners ── */
+:global([data-theme="dark"]) .errorBanner { background: #2a0f0f; border-color: #f87171; color: #f87171; }
+:global([data-theme="dark"]) .successMsg { background: #052e16; border-color: #166534; color: #4ade80; }
+:global([data-theme="dark"]) .errorMsg { background: #2a0f0f; border-color: #f87171; color: #f87171; }
+
+/* ── Misc badges ── */
+:global([data-theme="dark"]) .accessBadge { background: #052e16; color: #4ade80; border-color: #166534; }
+:global([data-theme="dark"]) .latestBadge { background: #052e16; color: #4ade80; border-color: #166534; }
+:global([data-theme="dark"]) .deleteMarkerBadge { background: #2a0f0f; color: #f87171; border-color: #991b1b; }
+:global([data-theme="dark"]) .inlineDownload:hover { background: var(--c-row-hover); }
+:global([data-theme="light"]) .cbInfoBtn { color: var(--c-link); border-color: var(--c-link); }

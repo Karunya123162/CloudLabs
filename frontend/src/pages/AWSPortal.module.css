@@ -324,6 +324,20 @@
 }
 .exitBtn:hover { background: #37475a; color: #fff; border-color: #aab7c4; }
 
+.themeToggleBtn {
+  background: none;
+  border: 1px solid #546575;
+  color: #d5dbdb;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 2px;
+  transition: all 0.12s;
+  margin-left: 2px;
+  line-height: 1;
+}
+.themeToggleBtn:hover { background: #37475a; color: #fff; border-color: #aab7c4; }
+
 /* Search bar */
 .searchWrap {
   position: relative;
@@ -903,3 +917,48 @@
 .regionRow { display: flex; align-items: center; gap: 12px; }
 .regionName { font-size: 0.82rem; font-weight: 600; color: #16191f; }
 .regionCode { font-size: 0.74rem; color: #879596; margin-top: 2px; }
+
+/* ── Light mode overrides ─────────────────────── */
+:global([data-theme="light"]) .portal { background: var(--p-body); color: var(--p-tile-text); }
+/* Top nav stays dark (AWS brand) — no override needed */
+:global([data-theme="light"]) .toolbar {
+  background: var(--p-toolbar);
+  border-bottom-color: var(--p-tile-border);
+}
+:global([data-theme="light"]) .toolbarItem { color: #374151; }
+:global([data-theme="light"]) .toolbarItem:hover { background: #f3f4f6; color: #111827; }
+:global([data-theme="light"]) .toolbarItemActive { border-bottom-color: #f59e0b; color: #92400e; background: #fff7ed; }
+:global([data-theme="light"]) .toolbarActive { color: #374151; }
+:global([data-theme="light"]) .toolbarRegion { color: #6b7280; }
+:global([data-theme="light"]) .main { background: var(--p-body); }
+:global([data-theme="light"]) .layout { background: var(--p-body); }
+:global([data-theme="light"]) .welcomeCard {
+  background: var(--p-welcome-bg);
+  border-color: var(--p-welcome-bdr);
+  color: var(--p-tile-text);
+}
+:global([data-theme="light"]) .welcomeTitle { color: var(--p-tile-text); }
+:global([data-theme="light"]) .welcomeDesc { color: var(--p-tile-muted); }
+:global([data-theme="light"]) .tile {
+  background: var(--p-tile);
+  border-color: var(--p-tile-border);
+  color: var(--p-tile-text);
+}
+:global([data-theme="light"]) .tile:hover { background: #f9fafb; border-color: #9ca3af; }
+:global([data-theme="light"]) .tileActive { border-color: #f59e0b; background: #fff7ed; }
+:global([data-theme="light"]) .tileName { color: var(--p-tile-text); }
+:global([data-theme="light"]) .tileDesc { color: var(--p-tile-muted); }
+:global([data-theme="light"]) .tileCategory { color: var(--p-tile-muted); }
+:global([data-theme="light"]) .section { background: var(--p-section-bg); border-color: var(--p-section-bdr); }
+:global([data-theme="light"]) .sectionTitle { color: var(--p-tile-text); }
+:global([data-theme="light"]) .catSection { background: var(--p-cat-bg); border-color: var(--p-cat-bdr); }
+:global([data-theme="light"]) .catTitle { color: var(--p-tile-muted); }
+:global([data-theme="light"]) .catItem { color: #374151; }
+:global([data-theme="light"]) .catItem:hover { background: #f3f4f6; color: #111827; }
+:global([data-theme="light"]) .catItemActive { background: #fff7ed; color: #92400e; }
+:global([data-theme="light"]) .regionPanel { background: #fff; border-color: #d1d5db; }
+:global([data-theme="light"]) .regionPanelHead { background: #f9fafb; border-bottom-color: #e5e7eb; }
+:global([data-theme="light"]) .regionInput { background: #fff; border-color: #d1d5db; color: #111827; }
+:global([data-theme="light"]) .regionGroupTitle { color: #6b7280; }
+:global([data-theme="light"]) .regionItem:hover { background: #f0f9ff; }
+:global([data-theme="light"]) .regionItemActive { background: #dbeafe; }

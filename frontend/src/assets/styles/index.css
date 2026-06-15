@@ -3,6 +3,7 @@ body { font-family: sans-serif; }
 
 :root,
 [data-theme="dark"] {
+  /* ── Dashboard / Sandbox variables ── */
   --bg:            #0f172a;
   --bg-card:       #1e293b;
   --bg-secondary:  #0f172a;
@@ -12,9 +13,41 @@ body { font-family: sans-serif; }
   --text-primary:  #f1f5f9;
   --text-secondary:#cbd5e1;
   --text-muted:    #94a3b8;
+
+  /* ── Console (EC2 / S3 / Lambda / IAM / CW) variables ── */
+  --c-bg:          #111418;
+  --c-sidebar:     #0f1117;
+  --c-header:      #0d1117;
+  --c-card:        #161b22;
+  --c-modal:       #1a1e2a;
+  --c-border:      #21262d;
+  --c-border-2:    #30363d;
+  --c-text:        #e6edf3;
+  --c-muted:       #8b949e;
+  --c-link:        #58a6ff;
+  --c-input:       #0d1117;
+  --c-row-alt:     #0d1117;
+  --c-row-hover:   #161b22;
+  --c-row-sel:     #1a2540;
+  --c-spinner:     #58a6ff;
+
+  /* ── AWSPortal-specific ── */
+  --p-body:        #f2f3f3;
+  --p-toolbar:     #fafafa;
+  --p-tile:        #ffffff;
+  --p-tile-border: #e5e7eb;
+  --p-tile-text:   #16191f;
+  --p-tile-muted:  #687078;
+  --p-section-bg:  #ffffff;
+  --p-section-bdr: #e5e7eb;
+  --p-welcome-bg:  #f0f6ff;
+  --p-welcome-bdr: #bfdbfe;
+  --p-cat-bg:      #f8f9fa;
+  --p-cat-bdr:     #e5e7eb;
 }
 
 [data-theme="light"] {
+  /* ── Dashboard / Sandbox variables ── */
   --bg:            #f1f5f9;
   --bg-card:       #ffffff;
   --bg-secondary:  #f8fafc;
@@ -24,4 +57,35 @@ body { font-family: sans-serif; }
   --text-primary:  #0f172a;
   --text-secondary:#334155;
   --text-muted:    #64748b;
+
+  /* ── Console (EC2 / S3 / Lambda / IAM / CW) variables ── */
+  --c-bg:          #f5f7fa;
+  --c-sidebar:     #f0f2f5;
+  --c-header:      #ffffff;
+  --c-card:        #ffffff;
+  --c-modal:       #ffffff;
+  --c-border:      #d1d5db;
+  --c-border-2:    #e5e7eb;
+  --c-text:        #111827;
+  --c-muted:       #6b7280;
+  --c-link:        #2563eb;
+  --c-input:       #ffffff;
+  --c-row-alt:     #f9fafb;
+  --c-row-hover:   #f0f9ff;
+  --c-row-sel:     #dbeafe;
+  --c-spinner:     #2563eb;
+
+  /* ── AWSPortal-specific ── */
+  --p-body:        #f0f2f5;
+  --p-toolbar:     #ffffff;
+  --p-tile:        #ffffff;
+  --p-tile-border: #d1d5db;
+  --p-tile-text:   #111827;
+  --p-tile-muted:  #6b7280;
+  --p-section-bg:  #ffffff;
+  --p-section-bdr: #d1d5db;
+  --p-welcome-bg:  #eff6ff;
+  --p-welcome-bdr: #bfdbfe;
+  --p-cat-bg:      #f8f9fa;
+  --p-cat-bdr:     #e5e7eb;
 }

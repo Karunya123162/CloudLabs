@@ -4,7 +4,7 @@ const { LambdaClient } = require('@aws-sdk/client-lambda')
 const { IAMClient } = require('@aws-sdk/client-iam')
 const { CloudWatchClient } = require('@aws-sdk/client-cloudwatch')
 
-const endpoint = process.env.LOCALSTACK_URL || 'http://localhost:4566'
+const endpoint = process.env.AWS_ENDPOINT_URL || 'http://localhost:4566'
 const region = 'us-east-1'
 const credentials = { accessKeyId: 'test', secretAccessKey: 'test' }
 const base = { endpoint, region, credentials }

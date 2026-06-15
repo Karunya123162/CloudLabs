@@ -272,3 +272,8 @@
 .helpCmd  { color: #79c0ff; white-space: nowrap; font-size: 0.85em; }
 .helpSep  { color: #484f58; flex-shrink: 0; }
 .helpDesc { color: var(--sh-info); }
+
+/* ── Light mode overrides ─────────────────────── */
+:global([data-theme="light"]) .shell,
+:global([data-theme="light"]) .cloudShell { background: #1a1a1a; }
+/* CloudShell is a terminal — keep dark regardless of theme */

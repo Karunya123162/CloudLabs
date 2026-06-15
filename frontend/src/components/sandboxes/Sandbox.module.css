@@ -61,6 +61,34 @@
   gap: 0.5rem;
 }
 
+.fieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fieldLabel {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15);
+}
+
 .chip {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -160,3 +188,64 @@
 .btnLaunchAws:hover { background: #e68900; }
 
 .chipDisabled { opacity: 0.4; cursor: not-allowed; }
+
+/* EC2 sub-navigation — AWS Console–style resource nav */
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: #0a0a0a;
+  border: 1px solid #292524;
+  border-radius: 6px;
+}
+
+.subChip {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.subChip:hover { color: #fde68a; border-color: #78350f; }
+
+.subChipActive {
+  background: #451a03;
+  border-color: #f59e0b;
+  color: #fde68a;
+  font-weight: 600;
+}
+
+/* 2-column grid for EC2 form fields */
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem 1rem;
+}
+
+/* ── Light mode overrides ─────────────────────── */
+:global([data-theme="light"]) .sandbox { background: var(--bg-card); border-color: var(--border); }
+:global([data-theme="light"]) .desc { color: var(--text-muted); }
+:global([data-theme="light"]) .chip { background: var(--bg-secondary); border-color: var(--border); color: var(--text-secondary); }
+:global([data-theme="light"]) .chip:hover { border-color: var(--border-hover); color: var(--text-primary); }
+:global([data-theme="light"]) .input { background: var(--bg-secondary); border-color: var(--border); color: var(--text-primary); }
+:global([data-theme="light"]) .input:focus { border-color: #3b82f6; }
+:global([data-theme="light"]) .terminal { background: var(--bg-secondary); border-color: var(--border); }
+:global([data-theme="light"]) .terminalHeader { background: var(--border); color: var(--text-muted); }
+:global([data-theme="light"]) .terminalBody { background: var(--bg-secondary); }
+:global([data-theme="light"]) .prompt { color: #16a34a; }
+:global([data-theme="light"]) .line_cmd pre { color: var(--text-primary); }
+:global([data-theme="light"]) .line_result pre { color: #2563eb; }
+:global([data-theme="light"]) .line_success pre { color: #16a34a; }
+:global([data-theme="light"]) .line_error pre { color: #dc2626; }
+:global([data-theme="light"]) .btnReset { background: var(--bg-hover); color: var(--text-secondary); }
+:global([data-theme="light"]) .btnAction { background: #dbeafe; color: #1e40af; }
+:global([data-theme="light"]) .btnAction:hover:not(:disabled) { background: #bfdbfe; }
+:global([data-theme="light"]) .subNav { background: #f1f5f9; border-color: #e2e8f0; }
+:global([data-theme="light"]) .subChip { color: var(--text-muted); }
+:global([data-theme="light"]) .subChip:hover { color: #92400e; border-color: #f59e0b; }
+:global([data-theme="light"]) .aws .subChipActive { background: #fff7ed; border-color: #f59e0b; color: #92400e; }

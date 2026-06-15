@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useRegion, REGIONS } from '../context/RegionContext'
 import S3Console from '../components/s3/S3Console'
+import EC2Console from '../components/ec2/EC2Console'
+import LambdaConsole from '../components/lambda/LambdaConsole'
+import IAMConsole from '../components/iam/IAMConsole'
+import CloudWatchConsole from '../components/cloudwatch/CloudWatchConsole'
 import CloudShell from '../components/CloudShell'
 import styles from './AWSPortal.module.css'
 
@@ -501,6 +506,7 @@ function ConsoleHome({ username, search, filtered, activeService, setActiveServi
 function AWSPortal() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
   const { region } = useRegion()
   const [loading,  setLoading]  = useState(true)
   const [exiting,  setExiting]  = useState(false)
@@ -622,6 +628,9 @@ function AWSPortal() {
           <RegionDropdown />
           <button className={styles.navBtn}>Support <span className={styles.caret}>▾</span></button>
           <div className={styles.navDivider} />
+          <button className={styles.themeToggleBtn} onClick={toggleTheme} title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}>
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
           <button className={styles.exitBtn} onClick={handleExit}>
             ← Exit
           </button>
@@ -663,10 +672,30 @@ function AWSPortal() {
 
           {/* S3 Console — full-width when active */}
           {activeService === 'S3' && (
-            <S3Console onBack={() => setActiveService(null)} />
+            <S3Console onBack={() => setActiveService(null)} onNavigateTo={setActiveService} />
           )}
 
-          {activeService !== 'S3' && (
+          {/* EC2 Console — full-width when active */}
+          {activeService === 'EC2' && (
+            <EC2Console onBack={() => setActiveService(null)} onNavigateTo={setActiveService} />
+          )}
+
+          {/* Lambda Console — full-width when active */}
+          {activeService === 'Lambda' && (
+            <LambdaConsole onBack={() => setActiveService(null)} />
+          )}
+
+          {/* IAM Console — full-width when active */}
+          {activeService === 'IAM' && (
+            <IAMConsole onBack={() => setActiveService(null)} />
+          )}
+
+          {/* CloudWatch Console — full-width when active */}
+          {activeService === 'CloudWatch' && (
+            <CloudWatchConsole onBack={() => setActiveService(null)} />
+          )}
+
+          {activeService !== 'S3' && activeService !== 'EC2' && activeService !== 'Lambda' && activeService !== 'IAM' && activeService !== 'CloudWatch' && (
           <ConsoleHome
             username={username}
             search={search}

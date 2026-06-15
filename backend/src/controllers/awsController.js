@@ -12,10 +12,32 @@ const {
   GetBucketOwnershipControlsCommand, PutBucketOwnershipControlsCommand,
   GetObjectLockConfigurationCommand, PutObjectLockConfigurationCommand,
 } = require('@aws-sdk/client-s3')
-const { DescribeInstancesCommand } = require('@aws-sdk/client-ec2')
-const { ListFunctionsCommand } = require('@aws-sdk/client-lambda')
-const { ListUsersCommand } = require('@aws-sdk/client-iam')
-const { ListMetricsCommand } = require('@aws-sdk/client-cloudwatch')
+const {
+  DescribeInstancesCommand, DescribeInstanceStatusCommand,
+  RunInstancesCommand,
+  StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, TerminateInstancesCommand,
+  DescribeKeyPairsCommand, CreateKeyPairCommand, DeleteKeyPairCommand,
+  DescribeSecurityGroupsCommand, CreateSecurityGroupCommand, DeleteSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand,
+  DescribeAddressesCommand, AllocateAddressCommand, AssociateAddressCommand, DisassociateAddressCommand, ReleaseAddressCommand,
+  DescribeVpcsCommand, CreateVpcCommand,
+  DescribeSubnetsCommand,
+  DescribeImagesCommand,
+  DescribeVolumesCommand, CreateVolumeCommand, AttachVolumeCommand, DetachVolumeCommand, DeleteVolumeCommand,
+} = require('@aws-sdk/client-ec2')
+const {
+  ListFunctionsCommand, GetFunctionCommand, DeleteFunctionCommand, InvokeCommand,
+} = require('@aws-sdk/client-lambda')
+const {
+  ListUsersCommand, CreateUserCommand, DeleteUserCommand,
+  ListGroupsCommand, CreateGroupCommand, DeleteGroupCommand, AddUserToGroupCommand, RemoveUserFromGroupCommand,
+  ListRolesCommand, CreateRoleCommand, DeleteRoleCommand,
+  ListPoliciesCommand, AttachUserPolicyCommand, DetachUserPolicyCommand, ListAttachedUserPoliciesCommand,
+} = require('@aws-sdk/client-iam')
+const {
+  ListMetricsCommand,
+  DescribeAlarmsCommand, PutMetricAlarmCommand, DeleteAlarmsCommand,
+  EnableAlarmActionsCommand, DisableAlarmActionsCommand,
+} = require('@aws-sdk/client-cloudwatch')
 const { s3Client, ec2Client, lambdaClient, iamClient, cloudwatchClient, endpoint } = require('../config/awsClients')
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 
@@ -372,15 +394,354 @@ async function deleteLifecycle(req, res) {
   }
 }
 
-async function describeInstances(req, res) {
+async function runInstances(req, res) {
+  const { imageId, instanceType = 't2.micro', minCount = 1, maxCount = 1, keyName, userData } = req.body
+  if (!imageId) return res.status(400).json({ message: 'Missing imageId' })
   try {
-    const { Reservations } = await ec2Client.send(new DescribeInstancesCommand({}))
-    res.json({ Reservations: Reservations || [] })
+    const params = {
+      ImageId: imageId,
+      InstanceType: instanceType,
+      MinCount: Number(minCount),
+      MaxCount: Number(maxCount),
+    }
+    if (keyName) params.KeyName = keyName
+    if (userData) params.UserData = Buffer.from(userData).toString('base64')
+    const { Instances } = await ec2Client.send(new RunInstancesCommand(params))
+    res.json({ Instances: Instances || [], message: `${Instances?.length || 0} instance(s) launched` })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
 }
 
+function isDeserializationError(err) {
+  const m = err.message || ''
+  return m.includes('Deserialization') || m.includes("char '{'") || m.includes('is not expected')
+}
+
+async function describeInstances(req, res) {
+  try {
+    const { Reservations } = await ec2Client.send(new DescribeInstancesCommand({}))
+    res.json({ Reservations: Reservations || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Reservations: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+function parseInstanceIds(value) {
+  if (Array.isArray(value)) {
+    return value.map(String).map((item) => item.trim()).filter(Boolean)
+  }
+
+  return String(value || '')
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+async function startInstances(req, res) {
+  const instanceIds = parseInstanceIds(req.body.instanceId || req.body.instanceIds)
+  if (!instanceIds.length) return res.status(400).json({ message: 'Missing instanceId' })
+  try {
+    const { StartingInstances } = await ec2Client.send(
+      new StartInstancesCommand({ InstanceIds: instanceIds })
+    )
+    res.json({ StartingInstances: StartingInstances || [], message: 'Instance start requested' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function stopInstances(req, res) {
+  const instanceIds = parseInstanceIds(req.body.instanceId || req.body.instanceIds)
+  if (!instanceIds.length) return res.status(400).json({ message: 'Missing instanceId' })
+  try {
+    const { StoppingInstances } = await ec2Client.send(
+      new StopInstancesCommand({ InstanceIds: instanceIds })
+    )
+    res.json({ StoppingInstances: StoppingInstances || [], message: 'Instance stop requested' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function hibernateInstances(req, res) {
+  const instanceIds = parseInstanceIds(req.body.instanceId || req.body.instanceIds)
+  if (!instanceIds.length) return res.status(400).json({ message: 'Missing instanceId' })
+  try {
+    const { StoppingInstances } = await ec2Client.send(
+      new StopInstancesCommand({ InstanceIds: instanceIds, Hibernate: true })
+    )
+    res.json({ StoppingInstances: StoppingInstances || [], message: 'Instance hibernate requested' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function rebootInstances(req, res) {
+  const instanceIds = parseInstanceIds(req.body.instanceId || req.body.instanceIds)
+  if (!instanceIds.length) return res.status(400).json({ message: 'Missing instanceId' })
+  try {
+    await ec2Client.send(new RebootInstancesCommand({ InstanceIds: instanceIds }))
+    res.json({ message: 'Instance reboot requested', InstanceIds: instanceIds })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function terminateInstances(req, res) {
+  const instanceIds = parseInstanceIds(req.body.instanceId || req.body.instanceIds)
+  if (!instanceIds.length) return res.status(400).json({ message: 'Missing instanceId' })
+  try {
+    const { TerminatingInstances } = await ec2Client.send(
+      new TerminateInstancesCommand({ InstanceIds: instanceIds })
+    )
+    res.json({ TerminatingInstances: TerminatingInstances || [], message: 'Instance termination requested' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function describeInstanceStatus(req, res) {
+  try {
+    const { InstanceStatuses } = await ec2Client.send(new DescribeInstanceStatusCommand({ IncludeAllInstances: true }))
+    res.json({ InstanceStatuses: InstanceStatuses || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ InstanceStatuses: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── Key Pairs ── */
+async function describeKeyPairs(req, res) {
+  try {
+    const { KeyPairs } = await ec2Client.send(new DescribeKeyPairsCommand({}))
+    res.json({ KeyPairs: KeyPairs || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ KeyPairs: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createKeyPair(req, res) {
+  const { keyName } = req.body
+  if (!keyName) return res.status(400).json({ message: 'Missing keyName' })
+  try {
+    const result = await ec2Client.send(new CreateKeyPairCommand({ KeyName: keyName }))
+    res.json({ KeyPairId: result.KeyPairId, KeyName: result.KeyName, KeyMaterial: result.KeyMaterial, message: `Key pair "${keyName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteKeyPair(req, res) {
+  const { name } = req.params
+  try {
+    await ec2Client.send(new DeleteKeyPairCommand({ KeyName: name }))
+    res.json({ message: `Key pair "${name}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── Security Groups ── */
+async function describeSecurityGroups(req, res) {
+  try {
+    const { SecurityGroups } = await ec2Client.send(new DescribeSecurityGroupsCommand({}))
+    res.json({ SecurityGroups: SecurityGroups || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ SecurityGroups: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createSecurityGroup(req, res) {
+  const { groupName, description, vpcId } = req.body
+  if (!groupName || !description) return res.status(400).json({ message: 'Missing groupName or description' })
+  try {
+    const params = { GroupName: groupName, Description: description }
+    if (vpcId) params.VpcId = vpcId
+    const { GroupId } = await ec2Client.send(new CreateSecurityGroupCommand(params))
+    res.json({ GroupId, message: `Security group "${groupName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteSecurityGroup(req, res) {
+  const { id } = req.params
+  try {
+    await ec2Client.send(new DeleteSecurityGroupCommand({ GroupId: id }))
+    res.json({ message: `Security group "${id}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function authorizeSecurityGroupIngress(req, res) {
+  const { id } = req.params
+  const { protocol = 'tcp', fromPort, toPort, cidrIp = '0.0.0.0/0' } = req.body
+  try {
+    const perm = { IpProtocol: protocol, IpRanges: [{ CidrIp: cidrIp }] }
+    if (fromPort !== undefined) perm.FromPort = Number(fromPort)
+    if (toPort   !== undefined) perm.ToPort   = Number(toPort)
+    await ec2Client.send(new AuthorizeSecurityGroupIngressCommand({ GroupId: id, IpPermissions: [perm] }))
+    res.json({ message: `Ingress rule authorized for ${id}` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── Elastic IPs ── */
+async function describeAddresses(req, res) {
+  try {
+    const { Addresses } = await ec2Client.send(new DescribeAddressesCommand({}))
+    res.json({ Addresses: Addresses || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Addresses: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function allocateAddress(req, res) {
+  try {
+    const result = await ec2Client.send(new AllocateAddressCommand({ Domain: 'vpc' }))
+    res.json({ AllocationId: result.AllocationId, PublicIp: result.PublicIp, message: 'Elastic IP allocated' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function associateAddress(req, res) {
+  const { instanceId, allocationId } = req.body
+  if (!instanceId || !allocationId) return res.status(400).json({ message: 'Missing instanceId or allocationId' })
+  try {
+    const { AssociationId } = await ec2Client.send(new AssociateAddressCommand({ InstanceId: instanceId, AllocationId: allocationId }))
+    res.json({ AssociationId, message: 'Elastic IP associated' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function disassociateAddress(req, res) {
+  const { associationId } = req.body
+  if (!associationId) return res.status(400).json({ message: 'Missing associationId' })
+  try {
+    await ec2Client.send(new DisassociateAddressCommand({ AssociationId: associationId }))
+    res.json({ message: 'Elastic IP disassociated' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function releaseAddress(req, res) {
+  const { allocationId } = req.body
+  if (!allocationId) return res.status(400).json({ message: 'Missing allocationId' })
+  try {
+    await ec2Client.send(new ReleaseAddressCommand({ AllocationId: allocationId }))
+    res.json({ message: 'Elastic IP released' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── VPC & Subnets ── */
+async function describeVpcs(req, res) {
+  try {
+    const { Vpcs } = await ec2Client.send(new DescribeVpcsCommand({}))
+    res.json({ Vpcs: Vpcs || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Vpcs: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createVpc(req, res) {
+  const { cidrBlock } = req.body
+  if (!cidrBlock) return res.status(400).json({ message: 'Missing cidrBlock' })
+  try {
+    const { Vpc } = await ec2Client.send(new CreateVpcCommand({ CidrBlock: cidrBlock }))
+    res.json({ Vpc, message: `VPC created with CIDR ${cidrBlock}` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function describeSubnets(req, res) {
+  try {
+    const { Subnets } = await ec2Client.send(new DescribeSubnetsCommand({}))
+    res.json({ Subnets: Subnets || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Subnets: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── AMIs ── */
+async function describeImages(req, res) {
+  try {
+    const { Images } = await ec2Client.send(new DescribeImagesCommand({ Owners: ['self'] }))
+    res.json({ Images: Images || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Images: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── Volumes ── */
+async function describeVolumes(req, res) {
+  try {
+    const { Volumes } = await ec2Client.send(new DescribeVolumesCommand({}))
+    res.json({ Volumes: Volumes || [] })
+  } catch (err) {
+    if (isDeserializationError(err)) return res.json({ Volumes: [] })
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createVolume(req, res) {
+  const { size = 8, availabilityZone = 'us-east-1a', volumeType = 'gp2' } = req.body
+  try {
+    const result = await ec2Client.send(new CreateVolumeCommand({ Size: Number(size), AvailabilityZone: availabilityZone, VolumeType: volumeType }))
+    res.json({ VolumeId: result.VolumeId, Size: result.Size, State: result.State, message: `Volume created (${size} GB)` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function attachVolume(req, res) {
+  const { volumeId, instanceId, device = '/dev/sdf' } = req.body
+  if (!volumeId || !instanceId) return res.status(400).json({ message: 'Missing volumeId or instanceId' })
+  try {
+    const result = await ec2Client.send(new AttachVolumeCommand({ VolumeId: volumeId, InstanceId: instanceId, Device: device }))
+    res.json({ ...result, message: `Volume ${volumeId} attached to ${instanceId}` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function detachVolume(req, res) {
+  const { volumeId } = req.body
+  if (!volumeId) return res.status(400).json({ message: 'Missing volumeId' })
+  try {
+    const result = await ec2Client.send(new DetachVolumeCommand({ VolumeId: volumeId }))
+    res.json({ ...result, message: `Volume ${volumeId} detached` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteVolume(req, res) {
+  const { id } = req.params
+  try {
+    await ec2Client.send(new DeleteVolumeCommand({ VolumeId: id }))
+    res.json({ message: `Volume ${id} deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── Lambda ── */
 async function listFunctions(req, res) {
   try {
     const { Functions } = await lambdaClient.send(new ListFunctionsCommand({}))
@@ -390,6 +751,47 @@ async function listFunctions(req, res) {
   }
 }
 
+async function getFunction(req, res) {
+  const { name } = req.params
+  try {
+    const result = await lambdaClient.send(new GetFunctionCommand({ FunctionName: name }))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteFunction(req, res) {
+  const { name } = req.params
+  try {
+    await lambdaClient.send(new DeleteFunctionCommand({ FunctionName: name }))
+    res.json({ message: `Function "${name}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function invokeFunction(req, res) {
+  const { name } = req.params
+  const { payload } = req.body
+  try {
+    const result = await lambdaClient.send(new InvokeCommand({
+      FunctionName: name,
+      Payload: payload ? Buffer.from(JSON.stringify(payload)) : undefined,
+    }))
+    const responsePayload = result.Payload ? Buffer.from(result.Payload).toString('utf-8') : null
+    res.json({
+      StatusCode: result.StatusCode,
+      FunctionError: result.FunctionError,
+      LogResult: result.LogResult ? Buffer.from(result.LogResult, 'base64').toString('utf-8') : null,
+      Payload: responsePayload,
+    })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── IAM ── */
 async function listUsers(req, res) {
   try {
     const { Users } = await iamClient.send(new ListUsersCommand({}))
@@ -399,10 +801,215 @@ async function listUsers(req, res) {
   }
 }
 
+async function createUser(req, res) {
+  const { userName } = req.body
+  if (!userName) return res.status(400).json({ message: 'Missing userName' })
+  try {
+    const { User } = await iamClient.send(new CreateUserCommand({ UserName: userName }))
+    res.json({ User, message: `User "${userName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteUser(req, res) {
+  const { name } = req.params
+  try {
+    await iamClient.send(new DeleteUserCommand({ UserName: name }))
+    res.json({ message: `User "${name}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function listGroups(req, res) {
+  try {
+    const { Groups } = await iamClient.send(new ListGroupsCommand({}))
+    res.json({ Groups: Groups || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createGroup(req, res) {
+  const { groupName } = req.body
+  if (!groupName) return res.status(400).json({ message: 'Missing groupName' })
+  try {
+    const { Group } = await iamClient.send(new CreateGroupCommand({ GroupName: groupName }))
+    res.json({ Group, message: `Group "${groupName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteGroup(req, res) {
+  const { name } = req.params
+  try {
+    await iamClient.send(new DeleteGroupCommand({ GroupName: name }))
+    res.json({ message: `Group "${name}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function addUserToGroup(req, res) {
+  const { userName, groupName } = req.body
+  if (!userName || !groupName) return res.status(400).json({ message: 'Missing userName or groupName' })
+  try {
+    await iamClient.send(new AddUserToGroupCommand({ UserName: userName, GroupName: groupName }))
+    res.json({ message: `User "${userName}" added to group "${groupName}"` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function listRoles(req, res) {
+  try {
+    const { Roles } = await iamClient.send(new ListRolesCommand({}))
+    res.json({ Roles: Roles || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createRole(req, res) {
+  const { roleName, assumeRolePolicyDocument } = req.body
+  if (!roleName) return res.status(400).json({ message: 'Missing roleName' })
+  const doc = assumeRolePolicyDocument || {
+    Version: '2012-10-17',
+    Statement: [{ Effect: 'Allow', Principal: { Service: 'lambda.amazonaws.com' }, Action: 'sts:AssumeRole' }],
+  }
+  try {
+    const { Role } = await iamClient.send(new CreateRoleCommand({
+      RoleName: roleName,
+      AssumeRolePolicyDocument: typeof doc === 'string' ? doc : JSON.stringify(doc),
+    }))
+    res.json({ Role, message: `Role "${roleName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteRole(req, res) {
+  const { name } = req.params
+  try {
+    await iamClient.send(new DeleteRoleCommand({ RoleName: name }))
+    res.json({ message: `Role "${name}" deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function listPolicies(req, res) {
+  try {
+    const { Policies } = await iamClient.send(new ListPoliciesCommand({ Scope: 'Local' }))
+    res.json({ Policies: Policies || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function listAttachedUserPolicies(req, res) {
+  const { name } = req.params
+  try {
+    const { AttachedPolicies } = await iamClient.send(new ListAttachedUserPoliciesCommand({ UserName: name }))
+    res.json({ AttachedPolicies: AttachedPolicies || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function attachUserPolicy(req, res) {
+  const { name } = req.params
+  const { policyArn } = req.body
+  if (!policyArn) return res.status(400).json({ message: 'Missing policyArn' })
+  try {
+    await iamClient.send(new AttachUserPolicyCommand({ UserName: name, PolicyArn: policyArn }))
+    res.json({ message: `Policy attached to user "${name}"` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function detachUserPolicy(req, res) {
+  const { name } = req.params
+  const { policyArn } = req.body
+  if (!policyArn) return res.status(400).json({ message: 'Missing policyArn' })
+  try {
+    await iamClient.send(new DetachUserPolicyCommand({ UserName: name, PolicyArn: policyArn }))
+    res.json({ message: `Policy detached from user "${name}"` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+/* ── CloudWatch ── */
 async function listMetrics(req, res) {
   try {
     const { Metrics } = await cloudwatchClient.send(new ListMetricsCommand({}))
     res.json({ Metrics: Metrics || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function describeAlarms(req, res) {
+  try {
+    const { MetricAlarms } = await cloudwatchClient.send(new DescribeAlarmsCommand({}))
+    res.json({ MetricAlarms: MetricAlarms || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function putMetricAlarm(req, res) {
+  const { alarmName, metricName, namespace, statistic = 'Average', period = 300, evaluationPeriods = 1, threshold, comparisonOperator = 'GreaterThanThreshold' } = req.body
+  if (!alarmName || !metricName || !namespace || threshold === undefined) {
+    return res.status(400).json({ message: 'Missing required alarm fields' })
+  }
+  try {
+    await cloudwatchClient.send(new PutMetricAlarmCommand({
+      AlarmName: alarmName,
+      MetricName: metricName,
+      Namespace: namespace,
+      Statistic: statistic,
+      Period: Number(period),
+      EvaluationPeriods: Number(evaluationPeriods),
+      Threshold: Number(threshold),
+      ComparisonOperator: comparisonOperator,
+    }))
+    res.json({ message: `Alarm "${alarmName}" created` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteAlarms(req, res) {
+  const { alarmNames } = req.body
+  if (!alarmNames?.length) return res.status(400).json({ message: 'Missing alarmNames' })
+  try {
+    await cloudwatchClient.send(new DeleteAlarmsCommand({ AlarmNames: alarmNames }))
+    res.json({ message: `${alarmNames.length} alarm(s) deleted` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function enableAlarm(req, res) {
+  const { name } = req.params
+  try {
+    await cloudwatchClient.send(new EnableAlarmActionsCommand({ AlarmNames: [name] }))
+    res.json({ message: `Alarm "${name}" actions enabled` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function disableAlarm(req, res) {
+  const { name } = req.params
+  try {
+    await cloudwatchClient.send(new DisableAlarmActionsCommand({ AlarmNames: [name] }))
+    res.json({ message: `Alarm "${name}" actions disabled` })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -560,8 +1167,153 @@ async function cliCommand(req, res) {
       if (subcommand === 'describe-instances') {
         const { Reservations } = await ec2Client.send(new DescribeInstancesCommand({}))
         output = fmt({ Reservations: Reservations || [] })
+      } else if (subcommand === 'start-instances') {
+        const instanceIds = parseInstanceIds(flags['instance-ids'] || flags['instance-id'])
+        if (!instanceIds.length) return res.json({ output: 'Missing --instance-ids', exitCode: 1 })
+        const { StartingInstances } = await ec2Client.send(
+          new StartInstancesCommand({ InstanceIds: instanceIds })
+        )
+        output = fmt({ StartingInstances: StartingInstances || [] })
+      } else if (subcommand === 'stop-instances') {
+        const instanceIds = parseInstanceIds(flags['instance-ids'] || flags['instance-id'])
+        if (!instanceIds.length) return res.json({ output: 'Missing --instance-ids', exitCode: 1 })
+        const { StoppingInstances } = await ec2Client.send(
+          new StopInstancesCommand({ InstanceIds: instanceIds, Hibernate: !!flags.hibernate })
+        )
+        output = fmt({ StoppingInstances: StoppingInstances || [] })
+      } else if (subcommand === 'hibernate-instances') {
+        const instanceIds = parseInstanceIds(flags['instance-ids'] || flags['instance-id'])
+        if (!instanceIds.length) return res.json({ output: 'Missing --instance-ids', exitCode: 1 })
+        const { StoppingInstances } = await ec2Client.send(
+          new StopInstancesCommand({ InstanceIds: instanceIds, Hibernate: true })
+        )
+        output = fmt({ StoppingInstances: StoppingInstances || [] })
+      } else if (subcommand === 'reboot-instances') {
+        const instanceIds = parseInstanceIds(flags['instance-ids'] || flags['instance-id'])
+        if (!instanceIds.length) return res.json({ output: 'Missing --instance-ids', exitCode: 1 })
+        await ec2Client.send(new RebootInstancesCommand({ InstanceIds: instanceIds }))
+        output = fmt({ InstanceIds: instanceIds })
+      } else if (subcommand === 'terminate-instances') {
+        const instanceIds = parseInstanceIds(flags['instance-ids'] || flags['instance-id'])
+        if (!instanceIds.length) return res.json({ output: 'Missing --instance-ids', exitCode: 1 })
+        const { TerminatingInstances } = await ec2Client.send(
+          new TerminateInstancesCommand({ InstanceIds: instanceIds })
+        )
+        output = fmt({ TerminatingInstances: TerminatingInstances || [] })
+      } else if (subcommand === 'run-instances') {
+        const imageId = flags['image-id']
+        if (!imageId) return res.json({ output: 'Missing --image-id', exitCode: 1 })
+        const instanceType = flags['instance-type'] || 't2.micro'
+        const count = Number(flags['count'] || flags['min-count'] || 1)
+        const { Instances } = await ec2Client.send(new RunInstancesCommand({ ImageId: imageId, InstanceType: instanceType, MinCount: count, MaxCount: count }))
+        output = fmt({ Instances: Instances || [] })
+      } else if (subcommand === 'describe-instance-status') {
+        const { InstanceStatuses } = await ec2Client.send(new DescribeInstanceStatusCommand({ IncludeAllInstances: true }))
+        output = fmt({ InstanceStatuses: InstanceStatuses || [] })
+      } else if (subcommand === 'describe-key-pairs') {
+        const { KeyPairs } = await ec2Client.send(new DescribeKeyPairsCommand({}))
+        output = fmt({ KeyPairs: KeyPairs || [] })
+      } else if (subcommand === 'create-key-pair') {
+        const keyName = flags['key-name']
+        if (!keyName) return res.json({ output: 'Missing --key-name', exitCode: 1 })
+        const result = await ec2Client.send(new CreateKeyPairCommand({ KeyName: keyName }))
+        output = fmt({ KeyPairId: result.KeyPairId, KeyName: result.KeyName })
+      } else if (subcommand === 'delete-key-pair') {
+        const keyName = flags['key-name']
+        if (!keyName) return res.json({ output: 'Missing --key-name', exitCode: 1 })
+        await ec2Client.send(new DeleteKeyPairCommand({ KeyName: keyName }))
+        output = ''
+      } else if (subcommand === 'describe-security-groups') {
+        const { SecurityGroups } = await ec2Client.send(new DescribeSecurityGroupsCommand({}))
+        output = fmt({ SecurityGroups: SecurityGroups || [] })
+      } else if (subcommand === 'create-security-group') {
+        const groupName = flags['group-name']
+        const description = flags['description']
+        if (!groupName || !description) return res.json({ output: 'Missing --group-name or --description', exitCode: 1 })
+        const { GroupId } = await ec2Client.send(new CreateSecurityGroupCommand({ GroupName: groupName, Description: description }))
+        output = fmt({ GroupId })
+      } else if (subcommand === 'delete-security-group') {
+        const groupId = flags['group-id']
+        if (!groupId) return res.json({ output: 'Missing --group-id', exitCode: 1 })
+        await ec2Client.send(new DeleteSecurityGroupCommand({ GroupId: groupId }))
+        output = ''
+      } else if (subcommand === 'authorize-security-group-ingress') {
+        const groupId = flags['group-id']
+        if (!groupId) return res.json({ output: 'Missing --group-id', exitCode: 1 })
+        const protocol = flags['protocol'] || 'tcp'
+        const port = flags['port'] !== undefined ? Number(flags['port']) : undefined
+        const cidr = flags['cidr'] || '0.0.0.0/0'
+        const perm = { IpProtocol: protocol, IpRanges: [{ CidrIp: cidr }] }
+        if (port !== undefined) { perm.FromPort = port; perm.ToPort = port }
+        await ec2Client.send(new AuthorizeSecurityGroupIngressCommand({ GroupId: groupId, IpPermissions: [perm] }))
+        output = ''
+      } else if (subcommand === 'describe-addresses') {
+        const { Addresses } = await ec2Client.send(new DescribeAddressesCommand({}))
+        output = fmt({ Addresses: Addresses || [] })
+      } else if (subcommand === 'allocate-address') {
+        const result = await ec2Client.send(new AllocateAddressCommand({ Domain: 'vpc' }))
+        output = fmt({ AllocationId: result.AllocationId, PublicIp: result.PublicIp })
+      } else if (subcommand === 'associate-address') {
+        const instanceId = flags['instance-id']
+        const allocationId = flags['allocation-id']
+        if (!instanceId || !allocationId) return res.json({ output: 'Missing --instance-id or --allocation-id', exitCode: 1 })
+        const { AssociationId } = await ec2Client.send(new AssociateAddressCommand({ InstanceId: instanceId, AllocationId: allocationId }))
+        output = fmt({ AssociationId })
+      } else if (subcommand === 'disassociate-address') {
+        const associationId = flags['association-id']
+        if (!associationId) return res.json({ output: 'Missing --association-id', exitCode: 1 })
+        await ec2Client.send(new DisassociateAddressCommand({ AssociationId: associationId }))
+        output = ''
+      } else if (subcommand === 'release-address') {
+        const allocationId = flags['allocation-id']
+        if (!allocationId) return res.json({ output: 'Missing --allocation-id', exitCode: 1 })
+        await ec2Client.send(new ReleaseAddressCommand({ AllocationId: allocationId }))
+        output = ''
+      } else if (subcommand === 'describe-vpcs') {
+        const { Vpcs } = await ec2Client.send(new DescribeVpcsCommand({}))
+        output = fmt({ Vpcs: Vpcs || [] })
+      } else if (subcommand === 'create-vpc') {
+        const cidrBlock = flags['cidr-block']
+        if (!cidrBlock) return res.json({ output: 'Missing --cidr-block', exitCode: 1 })
+        const { Vpc } = await ec2Client.send(new CreateVpcCommand({ CidrBlock: cidrBlock }))
+        output = fmt({ Vpc })
+      } else if (subcommand === 'describe-subnets') {
+        const { Subnets } = await ec2Client.send(new DescribeSubnetsCommand({}))
+        output = fmt({ Subnets: Subnets || [] })
+      } else if (subcommand === 'describe-images') {
+        const { Images } = await ec2Client.send(new DescribeImagesCommand({ Owners: ['self'] }))
+        output = fmt({ Images: Images || [] })
+      } else if (subcommand === 'describe-volumes') {
+        const { Volumes } = await ec2Client.send(new DescribeVolumesCommand({}))
+        output = fmt({ Volumes: Volumes || [] })
+      } else if (subcommand === 'create-volume') {
+        const size = flags['size'] ? Number(flags['size']) : 8
+        const az = flags['availability-zone'] || 'us-east-1a'
+        const volumeType = flags['volume-type'] || 'gp2'
+        const result = await ec2Client.send(new CreateVolumeCommand({ Size: size, AvailabilityZone: az, VolumeType: volumeType }))
+        output = fmt({ VolumeId: result.VolumeId, Size: result.Size, State: result.State })
+      } else if (subcommand === 'attach-volume') {
+        const volumeId = flags['volume-id']
+        const instanceId = flags['instance-id']
+        const device = flags['device'] || '/dev/sdf'
+        if (!volumeId || !instanceId) return res.json({ output: 'Missing --volume-id or --instance-id', exitCode: 1 })
+        const result = await ec2Client.send(new AttachVolumeCommand({ VolumeId: volumeId, InstanceId: instanceId, Device: device }))
+        output = fmt(result)
+      } else if (subcommand === 'detach-volume') {
+        const volumeId = flags['volume-id']
+        if (!volumeId) return res.json({ output: 'Missing --volume-id', exitCode: 1 })
+        const result = await ec2Client.send(new DetachVolumeCommand({ VolumeId: volumeId }))
+        output = fmt(result)
+      } else if (subcommand === 'delete-volume') {
+        const volumeId = flags['volume-id']
+        if (!volumeId) return res.json({ output: 'Missing --volume-id', exitCode: 1 })
+        await ec2Client.send(new DeleteVolumeCommand({ VolumeId: volumeId }))
+        output = ''
       } else {
-        return res.json({ output: `Unknown ec2 command: ${subcommand}`, exitCode: 1 })
+        return res.json({
+          output: `Unknown ec2 command: ${subcommand}\nRun: aws ec2 help`,
+          exitCode: 1,
+        })
       }
     }
 
@@ -761,6 +1513,19 @@ module.exports = {
   getBucketTags, putBucketTags,
   getOwnership, putOwnership,
   getObjectLock, putObjectLock,
-  describeInstances, listFunctions, listUsers, listMetrics,
+  runInstances, describeInstances, describeInstanceStatus,
+  startInstances, stopInstances, rebootInstances, terminateInstances, hibernateInstances,
+  describeKeyPairs, createKeyPair, deleteKeyPair,
+  describeSecurityGroups, createSecurityGroup, deleteSecurityGroup, authorizeSecurityGroupIngress,
+  describeAddresses, allocateAddress, associateAddress, disassociateAddress, releaseAddress,
+  describeVpcs, createVpc, describeSubnets,
+  describeImages,
+  describeVolumes, createVolume, attachVolume, detachVolume, deleteVolume,
+  listFunctions, getFunction, deleteFunction, invokeFunction,
+  listUsers, createUser, deleteUser,
+  listGroups, createGroup, deleteGroup, addUserToGroup,
+  listRoles, createRole, deleteRole,
+  listPolicies, listAttachedUserPolicies, attachUserPolicy, detachUserPolicy,
+  listMetrics, describeAlarms, putMetricAlarm, deleteAlarms, enableAlarm, disableAlarm,
   cliCommand,
 }

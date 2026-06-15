@@ -2076,6 +2076,176 @@ function ManagementTab({ bucket, scrollTo }) {
 }
 
 /* ────────────────────────────────── */
+function EC2IntegrationTab({ bucket, setError: reportError }) {
+  const [instances, setInstances] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState(null)  // selected instanceId
+  const [applying, setApplying] = useState(false)
+  const [success, setSuccess] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    api.get('/aws/ec2/instances')
+      .then(r => {
+        const list = (r.data.Reservations || []).flatMap(res => res.Instances || [])
+        setInstances(list)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const endpoint = 'http://localhost:4566'
+
+  const generatePolicy = (instanceId) => JSON.stringify({
+    Version: '2012-10-17',
+    Statement: [
+      {
+        Sid: 'EC2InstanceAccess',
+        Effect: 'Allow',
+        Principal: { AWS: `arn:aws:iam::000000000000:root` },
+        Action: ['s3:GetObject', 's3:PutObject', 's3:ListBucket'],
+        Resource: [
+          `arn:aws:s3:::${bucket}`,
+          `arn:aws:s3:::${bucket}/*`,
+        ],
+        Condition: {
+          StringEquals: { 'aws:sourceIp': '0.0.0.0/0' }
+        }
+      }
+    ]
+  }, null, 2)
+
+  const applyPolicy = async () => {
+    if (!selected) return
+    setApplying(true)
+    try {
+      const policy = generatePolicy(selected)
+      await api.put(`/aws/s3/buckets/${bucket}/policy`, { policy })
+      setSuccess(`Bucket policy applied — EC2 instance "${selected}" can now access "${bucket}".`)
+    } catch (ex) {
+      reportError(ex.response?.data?.message || ex.message)
+    } finally {
+      setApplying(false) }
+  }
+
+  const bootstrapScript = selected
+    ? `#!/bin/bash\nyum install -y aws-cli\nexport AWS_ACCESS_KEY_ID=test\nexport AWS_SECRET_ACCESS_KEY=test\nexport AWS_DEFAULT_REGION=us-east-1\naws s3 sync s3://${bucket}/ /home/ec2-user/s3-data/ --endpoint-url=${endpoint}\necho "Done" >> /var/log/s3-bootstrap.log`
+    : ''
+
+  return (
+    <div style={{ padding: '24px', maxWidth: 900 }}>
+      <h3 style={{ color: '#e6edf3', fontWeight: 600, marginBottom: 4, fontSize: '1rem' }}>EC2 Integration</h3>
+      <p style={{ color: '#8b949e', fontSize: '0.875rem', marginBottom: 20 }}>
+        Select a running EC2 instance to generate a bucket policy granting it access to <strong style={{ color: '#e6edf3' }}>{bucket}</strong>, and get a ready-to-use bootstrap script.
+      </p>
+
+      {success && (
+        <div style={{ background: '#0d1117', border: '1px solid #3fb950', borderRadius: 6, padding: '10px 16px', marginBottom: 16, color: '#3fb950', fontSize: '0.875rem' }}>
+          {success}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ color: '#8b949e', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          Running EC2 Instances
+        </div>
+        {loading ? (
+          <div style={{ color: '#8b949e', padding: 12 }}>Loading instances…</div>
+        ) : instances.length === 0 ? (
+          <div style={{ color: '#8b949e', padding: '16px', border: '1px solid #30363d', borderRadius: 6, textAlign: 'center', fontSize: '0.875rem' }}>
+            No EC2 instances found. Launch an instance from the EC2 Console first.
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ background: '#0d1117' }}>
+                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#8b949e', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', border: '1px solid #21262d' }}></th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#8b949e', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', border: '1px solid #21262d' }}>Instance ID</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#8b949e', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', border: '1px solid #21262d' }}>State</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#8b949e', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', border: '1px solid #21262d' }}>Type</th>
+                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#8b949e', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', border: '1px solid #21262d' }}>Private IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {instances.map(inst => (
+                <tr
+                  key={inst.InstanceId}
+                  style={{ background: selected === inst.InstanceId ? '#1c2333' : 'transparent', cursor: 'pointer' }}
+                  onClick={() => setSelected(inst.InstanceId)}
+                >
+                  <td style={{ padding: '8px 12px', border: '1px solid #21262d' }}>
+                    <input type="radio" checked={selected === inst.InstanceId} onChange={() => setSelected(inst.InstanceId)} />
+                  </td>
+                  <td style={{ padding: '8px 12px', border: '1px solid #21262d', color: '#58a6ff', fontFamily: 'monospace', fontSize: '0.8rem' }}>{inst.InstanceId}</td>
+                  <td style={{ padding: '8px 12px', border: '1px solid #21262d' }}>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                      background: inst.State?.Name === 'running' ? '#0d2b0d' : '#1c1917',
+                      color: inst.State?.Name === 'running' ? '#4ade80' : '#a8a29e',
+                      border: `1px solid ${inst.State?.Name === 'running' ? '#166534' : '#57534e'}`,
+                    }}>
+                      {inst.State?.Name || '—'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 12px', border: '1px solid #21262d', color: '#e6edf3' }}>{inst.InstanceType || '—'}</td>
+                  <td style={{ padding: '8px 12px', border: '1px solid #21262d', color: '#e6edf3', fontFamily: 'monospace', fontSize: '0.8rem' }}>{inst.PrivateIpAddress || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {selected && (
+        <>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ color: '#8b949e', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Bucket Policy (grants {selected} access)
+              </div>
+              <button
+                onClick={applyPolicy}
+                disabled={applying}
+                style={{
+                  background: '#f59e0b', color: '#0d0d0d', border: 'none', borderRadius: 6,
+                  padding: '6px 14px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                  opacity: applying ? 0.6 : 1,
+                }}
+              >
+                {applying ? 'Applying…' : 'Apply Policy to Bucket'}
+              </button>
+            </div>
+            <pre style={{
+              background: '#0d1117', border: '1px solid #30363d', borderRadius: 6,
+              padding: 14, color: '#79c0ff', fontSize: '0.78rem', fontFamily: 'monospace',
+              overflow: 'auto', maxHeight: 220, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              {generatePolicy(selected)}
+            </pre>
+          </div>
+
+          <div>
+            <div style={{ color: '#8b949e', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+              Bootstrap Script (paste as EC2 User Data)
+            </div>
+            <pre style={{
+              background: '#0d1117', border: '1px solid #30363d', borderRadius: 6,
+              padding: 14, color: '#4ade80', fontSize: '0.78rem', fontFamily: 'monospace',
+              overflow: 'auto', maxHeight: 160, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              {bootstrapScript}
+            </pre>
+            <p style={{ color: '#8b949e', fontSize: '0.75rem', marginTop: 6 }}>
+              Copy this script into the EC2 Launch Instance → User Data field to automatically sync this bucket to the instance on startup.
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ────────────────────────────────── */
 const BUCKET_NAV = [
   { id: 'Objects',     label: 'Objects',     icon: '⊞' },
   {
@@ -2105,6 +2275,7 @@ const BUCKET_NAV = [
     ],
   },
   { id: 'Triggers',   label: 'Triggers',   icon: '⚡' },
+  { id: 'EC2',        label: 'EC2 Integration', icon: '⬛' },
 ]
 
 /* sidebar nav component */
@@ -2236,7 +2407,7 @@ function BucketNamespace({ bucket, bucketData }) {
   )
 }
 
-export default function S3Console({ onBack }) {
+export default function S3Console({ onBack, onNavigateTo }) {
   const [buckets, setBuckets]               = useState([])
   const [openBucket, setOpenBucket]         = useState(null)
   const [objects, setObjects]               = useState([])
@@ -2593,6 +2764,9 @@ export default function S3Console({ onBack }) {
               )}
               {activeSection === 'Triggers' && (
                 <BucketTriggers />
+              )}
+              {activeSection === 'EC2' && (
+                <EC2IntegrationTab bucket={openBucket} setError={setError} />
               )}
             </div>
           </div>
