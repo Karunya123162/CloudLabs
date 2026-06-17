@@ -2245,6 +2245,301 @@ function EC2IntegrationTab({ bucket, setError: reportError }) {
   )
 }
 
+/* ════════════════════════════════════
+   WEBSITE TAB
+════════════════════════════════════ */
+function WebsiteTab({ bucket, objects, setActiveSection }) {
+  const BACKEND = 'http://localhost:5000'
+  const websiteUrl = `${BACKEND}/api/aws/s3/website/${bucket}/`
+
+  /* ── website config ── */
+  const [site,     setSite]     = useState({ enabled: false, indexDocument: 'index.html', errorDocument: 'error.html' })
+  const [siteDraft,setSiteDraft]= useState(site)
+  const [siteEdit, setSiteEdit] = useState(false)
+  const [siteBusy, setSiteBusy] = useState(false)
+  const [siteMsg,  setSiteMsg]  = useState(null)
+
+  /* ── public access ── */
+  const [blockCfg,    setBlockCfg]    = useState(null)   // null = loading
+  const [makingPub,   setMakingPub]   = useState(false)
+  const [pubMsg,      setPubMsg]      = useState(null)
+
+  /* ── index.html check ── */
+  const indexExists = objects.some(o => o.Key === site.indexDocument)
+
+  const load = useCallback(async () => {
+    const [siteR, pubR] = await Promise.allSettled([
+      api.get(`/aws/s3/buckets/${bucket}/website`),
+      api.get(`/aws/s3/buckets/${bucket}/public-access`),
+    ])
+    if (siteR.status === 'fulfilled') {
+      setSite(siteR.value.data)
+      setSiteDraft(siteR.value.data)
+    }
+    if (pubR.status === 'fulfilled') {
+      setBlockCfg(pubR.value.data.config || {})
+    } else {
+      setBlockCfg({})
+    }
+  }, [bucket])
+
+  useEffect(() => { load() }, [load])
+
+  const isPublic = blockCfg !== null && !Object.values(blockCfg).some(Boolean)
+
+  const saveSite = async () => {
+    setSiteBusy(true); setSiteMsg(null)
+    try {
+      if (siteDraft.enabled) {
+        await api.put(`/aws/s3/buckets/${bucket}/website`, siteDraft)
+        setSite({ ...siteDraft, enabled: true })
+      } else {
+        await api.delete(`/aws/s3/buckets/${bucket}/website`)
+        setSite({ ...siteDraft, enabled: false })
+      }
+      setSiteEdit(false)
+      setSiteMsg({ ok: true, text: `Website hosting ${siteDraft.enabled ? 'enabled' : 'disabled'}.` })
+    } catch (ex) {
+      setSiteMsg({ ok: false, text: ex.response?.data?.message || 'Failed to save.' })
+    } finally { setSiteBusy(false) }
+  }
+
+  const makePublic = async () => {
+    setMakingPub(true); setPubMsg(null)
+    try {
+      await api.put(`/aws/s3/buckets/${bucket}/public-access`, {
+        BlockPublicAcls: false, IgnorePublicAcls: false,
+        BlockPublicPolicy: false, RestrictPublicBuckets: false,
+      })
+      const policy = JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [{ Sid: 'PublicRead', Effect: 'Allow', Principal: '*',
+          Action: 's3:GetObject', Resource: `arn:aws:s3:::${bucket}/*` }],
+      })
+      await api.put(`/aws/s3/buckets/${bucket}/policy`, { policy })
+      setBlockCfg({})
+      setPubMsg({ ok: true, text: 'Bucket is now publicly accessible.' })
+    } catch (ex) {
+      setPubMsg({ ok: false, text: ex.response?.data?.message || 'Failed to enable public access.' })
+    } finally { setMakingPub(false) }
+  }
+
+  const steps = [
+    {
+      key: 'hosting',
+      label: 'Static website hosting enabled',
+      done: site.enabled,
+      action: !site.enabled ? () => { setSiteDraft(d => ({ ...d, enabled: true })); setSiteEdit(true) } : null,
+      actionLabel: 'Enable',
+    },
+    {
+      key: 'public',
+      label: 'Public access allowed',
+      done: isPublic,
+      action: !isPublic ? makePublic : null,
+      actionLabel: makingPub ? 'Enabling…' : 'Make public',
+      busy: makingPub,
+    },
+    {
+      key: 'index',
+      label: `Index document uploaded (${site.indexDocument})`,
+      done: indexExists,
+      action: !indexExists ? () => document.querySelector('[data-upload-trigger]')?.click() : null,
+      actionLabel: 'Upload files',
+    },
+  ]
+
+  const allReady = steps.every(s => s.done)
+
+  return (
+    <div className={styles.tabContent}>
+
+      {/* ── URL Banner ── */}
+      <div className={styles.websiteBanner}>
+        <div className={styles.websiteBannerLeft}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#0073bb" strokeWidth="1.5"/>
+            <path d="M12 3c-2.5 2.5-4 6-4 9s1.5 6.5 4 9" stroke="#0073bb" strokeWidth="1.5" fill="none"/>
+            <path d="M12 3c2.5 2.5 4 6 4 9s-1.5 6.5-4 9" stroke="#0073bb" strokeWidth="1.5" fill="none"/>
+            <path d="M3 12h18" stroke="#0073bb" strokeWidth="1.5"/>
+          </svg>
+          <div>
+            <div className={styles.websiteBannerTitle}>Website endpoint</div>
+            <a href={websiteUrl} target="_blank" rel="noopener noreferrer"
+              className={styles.websiteBannerUrl}>{websiteUrl}</a>
+          </div>
+        </div>
+        <div className={styles.websiteBannerActions}>
+          <CopyBtn value={websiteUrl} />
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${styles.btnOrange} ${!allReady ? styles.btnDisabled : ''}`}
+            onClick={e => { if (!allReady) { e.preventDefault(); setSiteMsg({ ok: false, text: 'Complete all setup steps before launching.' }) } }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            Launch website
+          </a>
+        </div>
+      </div>
+
+      {/* ── Setup checklist ── */}
+      <div className={styles.propSection}>
+        <div className={styles.propSectionHead}>
+          <h3 className={styles.propTitle}>Setup checklist</h3>
+          {allReady && <span className={styles.allReadyBadge}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" fill="#1d8102"/>
+              <path d="M3.5 6l2 2 3-3" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Ready to launch
+          </span>}
+        </div>
+        <div className={styles.propBody}>
+          {steps.map(step => (
+            <div key={step.key} className={styles.setupStep}>
+              <div className={`${styles.setupStepIcon} ${step.done ? styles.setupStepDone : styles.setupStepPending}`}>
+                {step.done
+                  ? <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                      <circle cx="6" cy="6" r="5" fill="#1d8102"/>
+                      <path d="M3.5 6l2 2 3-3" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="9" stroke="#d08700" strokeWidth="1.5"/>
+                      <line x1="12" y1="8" x2="12" y2="12" stroke="#d08700" strokeWidth="1.5" strokeLinecap="round"/>
+                      <circle cx="12" cy="16" r="0.5" fill="#d08700" stroke="#d08700"/>
+                    </svg>
+                }
+              </div>
+              <span className={`${styles.setupStepLabel} ${step.done ? styles.setupStepLabelDone : ''}`}>
+                {step.label}
+              </span>
+              {!step.done && step.action && (
+                <button className={styles.setupStepBtn} onClick={step.action} disabled={step.busy}>
+                  {step.actionLabel}
+                </button>
+              )}
+            </div>
+          ))}
+          {pubMsg && <div className={pubMsg.ok ? styles.successMsg : styles.errorMsg} style={{ marginTop: 12 }}>{pubMsg.text}</div>}
+        </div>
+      </div>
+
+      {/* ── Website configuration ── */}
+      <div className={styles.propSection}>
+        <div className={styles.propSectionHead}>
+          <h3 className={styles.propTitle}>Website configuration</h3>
+          {!siteEdit
+            ? <button className={styles.editBtn} onClick={() => { setSiteDraft(site); setSiteEdit(true); setSiteMsg(null) }}>Edit</button>
+            : <div className={styles.editBtnGroup}>
+                <button className={styles.btnSecondary} onClick={() => { setSiteEdit(false); setSiteMsg(null) }}>Cancel</button>
+                <button className={styles.btnOrange} onClick={saveSite} disabled={siteBusy}>{siteBusy ? 'Saving…' : 'Save changes'}</button>
+              </div>
+          }
+        </div>
+        <div className={styles.propBody}>
+          {!siteEdit ? (
+            <>
+              <div className={styles.propRow}>
+                <span className={styles.propKey}>Status</span>
+                <span className={styles.statusBadge}
+                  style={site.enabled
+                    ? { background: '#f0fae6', color: '#1d6b0b', border: '1px solid #b3d99e' }
+                    : { background: '#f2f3f3', color: '#545b64', border: '1px solid #d5dbdb' }}>
+                  {site.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div className={styles.propRow}>
+                <span className={styles.propKey}>Index document</span>
+                <code className={styles.prefixCode}>{site.indexDocument}</code>
+              </div>
+              <div className={styles.propRow}>
+                <span className={styles.propKey}>Error document</span>
+                <code className={styles.prefixCode}>{site.errorDocument}</code>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Static website hosting</label>
+                <div className={styles.toggleRow}>
+                  {[['Enable', true], ['Disable', false]].map(([lbl, val]) => (
+                    <button key={lbl} type="button"
+                      className={`${styles.toggleBtn} ${siteDraft.enabled === val ? styles.toggleOn : ''}`}
+                      onClick={() => setSiteDraft(d => ({ ...d, enabled: val }))}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {siteDraft.enabled && (
+                <>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Index document</label>
+                    <input className={styles.fieldInput} value={siteDraft.indexDocument}
+                      onChange={e => setSiteDraft(d => ({ ...d, indexDocument: e.target.value }))}
+                      placeholder="index.html" style={{ maxWidth: 280 }} />
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Error document <span className={styles.optLabel}>(optional)</span></label>
+                    <input className={styles.fieldInput} value={siteDraft.errorDocument}
+                      onChange={e => setSiteDraft(d => ({ ...d, errorDocument: e.target.value }))}
+                      placeholder="error.html" style={{ maxWidth: 280 }} />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {siteMsg && <div className={siteMsg.ok ? styles.successMsg : styles.errorMsg}>{siteMsg.text}</div>}
+        </div>
+      </div>
+
+      {/* ── Quick start guide ── */}
+      <div className={styles.propSection}>
+        <div className={styles.propSectionHead}>
+          <h3 className={styles.propTitle}>Quick start guide</h3>
+        </div>
+        <div className={styles.propBody}>
+          <ol className={styles.guideList}>
+            <li>
+              <strong>Enable website hosting</strong> — click Edit above and set to Enabled.
+              Set your index document (e.g. <code className={styles.prefixCode}>index.html</code>).
+            </li>
+            <li>
+              <strong>Make the bucket public</strong> — website files must be publicly readable.
+              Click "Make public" in the checklist above to disable Block Public Access and apply a public-read bucket policy.
+            </li>
+            <li>
+              <strong>Upload your website files</strong> — go to the{' '}
+              <button className={styles.linkBtn} onClick={() => setActiveSection('Objects')}>Objects tab</button>{' '}
+              and upload <code className={styles.prefixCode}>index.html</code> and any CSS/JS/image assets.
+            </li>
+            <li>
+              <strong>Launch</strong> — click the orange "Launch website" button at the top of this page.
+              Your site is served at <code className={styles.prefixCode}>/api/aws/s3/website/{bucket}/</code>.
+            </li>
+          </ol>
+          <div className={styles.guideNote}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="#0073bb" strokeWidth="1.5"/>
+              <line x1="12" y1="8" x2="12" y2="12" stroke="#0073bb" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="12" cy="16" r="0.5" fill="#0073bb" stroke="#0073bb"/>
+            </svg>
+            The website URL is served through the CloudLabs backend proxy, which means relative CSS, JS, and image paths
+            resolve correctly — just like a real S3 website endpoint.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 /* ────────────────────────────────── */
 const BUCKET_NAV = [
   { id: 'Objects',     label: 'Objects',     icon: '⊞' },
@@ -2274,6 +2569,7 @@ const BUCKET_NAV = [
       { id: 'Management.Replication',  label: 'Replication rules' },
     ],
   },
+  { id: 'Website',    label: 'Static Website',  icon: '🌐' },
   { id: 'Triggers',   label: 'Triggers',   icon: '⚡' },
   { id: 'EC2',        label: 'EC2 Integration', icon: '⬛' },
 ]
@@ -2760,6 +3056,13 @@ export default function S3Console({ onBack, onNavigateTo }) {
               {activeSection.startsWith('Management') && (
                 <ManagementTab bucket={openBucket}
                   scrollTo={activeSection.split('.')[1]}
+                />
+              )}
+              {activeSection === 'Website' && (
+                <WebsiteTab
+                  bucket={openBucket}
+                  objects={objects}
+                  setActiveSection={setActiveSection}
                 />
               )}
               {activeSection === 'Triggers' && (

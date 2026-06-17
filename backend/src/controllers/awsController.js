@@ -1452,6 +1452,68 @@ async function viewObject(req, res) {
   }
 }
 
+/* ── Static website serving ── */
+async function serveWebsite(req, res) {
+  const { bucket } = req.params
+  let filePath = req.params[0] || ''
+
+  /* get website config to find index/error documents */
+  let indexDoc = 'index.html'
+  let errorDoc = 'error.html'
+  try {
+    const cfg = await s3Client.send(new GetBucketWebsiteCommand({ Bucket: bucket }))
+    indexDoc = cfg.IndexDocument?.Suffix || 'index.html'
+    errorDoc = cfg.ErrorDocument?.Key || 'error.html'
+  } catch { /* website not configured — still try to serve */ }
+
+  /* resolve directory requests to the index document */
+  if (!filePath || filePath === '/' || filePath.endsWith('/')) {
+    filePath = filePath.replace(/\/$/, '') + (filePath ? '/' : '') + indexDoc
+  }
+
+  const MIME = {
+    html: 'text/html', htm: 'text/html',
+    css: 'text/css', js: 'application/javascript', mjs: 'application/javascript',
+    json: 'application/json', xml: 'application/xml',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    gif: 'image/gif', svg: 'image/svg+xml', ico: 'image/x-icon',
+    webp: 'image/webp', avif: 'image/avif',
+    woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf',
+    pdf: 'application/pdf', txt: 'text/plain',
+  }
+
+  const tryServe = async (key) => {
+    const result = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+    const ext = key.split('.').pop().toLowerCase()
+    const mime = MIME[ext] || result.ContentType || 'application/octet-stream'
+    res.setHeader('Content-Type', mime)
+    res.setHeader('X-Website-Bucket', bucket)
+    if (result.ContentLength) res.setHeader('Content-Length', result.ContentLength)
+    result.Body.pipe(res)
+  }
+
+  try {
+    await tryServe(filePath)
+  } catch (err) {
+    if (err.$metadata?.httpStatusCode === 404 || err.name === 'NoSuchKey') {
+      try {
+        await tryServe(errorDoc)
+      } catch {
+        res.status(404).send(`
+<!DOCTYPE html><html><head><title>404 Not Found</title>
+<style>body{font-family:sans-serif;padding:40px;background:#f2f3f3;color:#16191f}
+h1{color:#c7131f}code{background:#e8e8e8;padding:2px 6px;border-radius:3px}</style></head>
+<body><h1>404 Not Found</h1>
+<p>The requested file <code>${filePath}</code> was not found in bucket <code>${bucket}</code>.</p>
+<p>Make sure you have uploaded <code>${indexDoc}</code> and configured static website hosting.</p>
+</body></html>`)
+      }
+    } else {
+      res.status(500).send(`Error: ${err.message}`)
+    }
+  }
+}
+
 async function getPresignedUrl(req, res) {
   const { name } = req.params
   const key = req.params[0]
@@ -1507,7 +1569,7 @@ module.exports = {
   getLifecycle, putLifecycle, deleteLifecycle,
   getPublicAccess, putPublicAccess,
   getEncryption, putEncryption,
-  getWebsite, putWebsite, deleteWebsite,
+  getWebsite, putWebsite, deleteWebsite, serveWebsite,
   viewObject,
   getPresignedUrl,
   getBucketTags, putBucketTags,

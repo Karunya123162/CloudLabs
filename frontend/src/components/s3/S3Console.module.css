@@ -1360,6 +1360,68 @@
 :global([data-theme="light"]) .cbRadioRowActive { background: #fff7ed; border-color: #f59e0b; }
 :global([data-theme="light"]) .cbSectionHead { border-bottom-color: var(--c-border); background: var(--c-row-alt); }
 
+/* ════════════════════════════════════
+   WEBSITE TAB
+════════════════════════════════════ */
+.websiteBanner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: #e8f4fb; border: 1px solid #b8ddf0; border-radius: 6px;
+  padding: 16px 20px; margin-bottom: 20px;
+}
+.websiteBannerLeft { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.websiteBannerTitle { font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #545b64; margin-bottom: 3px; }
+.websiteBannerUrl { color: #0073bb; font-family: monospace; font-size: 0.85rem;
+  text-decoration: none; word-break: break-all; }
+.websiteBannerUrl:hover { text-decoration: underline; }
+.websiteBannerActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.setupStep {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid #e5e7eb;
+}
+.setupStep:last-child { border-bottom: none; }
+.setupStepIcon { flex-shrink: 0; width: 20px; display: flex; align-items: center; justify-content: center; }
+.setupStepLabel { flex: 1; font-size: 0.88rem; color: #16191f; }
+.setupStepLabelDone { color: #545b64; text-decoration: line-through; }
+.setupStepBtn {
+  font-size: 0.78rem; padding: 4px 12px; border-radius: 3px;
+  background: #fff; border: 1px solid #0073bb; color: #0073bb; cursor: pointer;
+  font-weight: 600;
+}
+.setupStepBtn:hover:not(:disabled) { background: #e8f4fb; }
+.setupStepBtn:disabled { opacity: 0.5; cursor: default; }
+
+.allReadyBadge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; font-weight: 700; color: #1d8102;
+  background: #f0fae6; border: 1px solid #b3d99e; border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.btnDisabled { opacity: 0.5; pointer-events: none; cursor: default; }
+
+.guideList {
+  margin: 0; padding: 0 0 0 20px; color: #16191f; font-size: 0.88rem; line-height: 1.9;
+}
+.guideList li { margin-bottom: 6px; }
+.guideNote {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 16px;
+  background: #e8f4fb; border: 1px solid #b8ddf0; border-radius: 4px;
+  padding: 10px 14px; font-size: 0.82rem; color: #545b64; line-height: 1.5;
+}
+
+:global([data-theme="dark"]) .websiteBanner { background: #0d1e36; border-color: #1e4078; }
+:global([data-theme="dark"]) .websiteBannerTitle { color: var(--c-muted); }
+:global([data-theme="dark"]) .websiteBannerUrl { color: var(--c-link); }
+:global([data-theme="dark"]) .setupStep { border-bottom-color: var(--c-border); }
+:global([data-theme="dark"]) .setupStepLabel { color: var(--c-text); }
+:global([data-theme="dark"]) .setupStepLabelDone { color: var(--c-muted); }
+:global([data-theme="dark"]) .setupStepBtn { background: var(--c-card); border-color: var(--c-link); color: var(--c-link); }
+:global([data-theme="dark"]) .setupStepBtn:hover:not(:disabled) { background: var(--c-row-hover); }
+:global([data-theme="dark"]) .guideList { color: var(--c-text); }
+:global([data-theme="dark"]) .guideNote { background: #0d1e36; border-color: #1e4078; color: var(--c-muted); }
+
 /* ══════════════════════════════════════════════════════════
    DARK MODE OVERRIDES  (base styles are light/AWS-style)
 ══════════════════════════════════════════════════════════ */
