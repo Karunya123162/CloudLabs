@@ -3066,7 +3066,7 @@ export default function S3Console({ onBack, onNavigateTo }) {
                 />
               )}
               {activeSection === 'Triggers' && (
-                <BucketTriggers />
+                <BucketTriggers bucket={openBucket} />
               )}
               {activeSection === 'EC2' && (
                 <EC2IntegrationTab bucket={openBucket} setError={setError} />

@@ -1,267 +1,337 @@
-import styles from './BucketTriggers.module.css';
+import { useState, useEffect, useCallback } from 'react'
+import api from '../../services/api'
+import styles from './BucketTriggers.module.css'
 
-const TRIGGERS = [
-  {
-    id: 'sdk',
-    icon: 'SDK',
-    color: '#f0883e',
-    bg: '#2d1e0f',
-    title: 'SDK / Direct API',
-    subtitle: 'Programmatic access via AWS SDKs or raw HTTP',
-    desc: 'Any AWS SDK or raw HTTP client can create a bucket by issuing a signed PUT request. The SDK handles credential signing automatically.',
-    examples: [
-      {
-        lang: 'Python (Boto3)',
-        code: `import boto3
-s3 = boto3.client('s3', region_name='us-east-1')
-s3.create_bucket(Bucket='my-new-bucket')`,
-      },
-      {
-        lang: 'JavaScript (AWS SDK v3)',
-        code: `import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
-const client = new S3Client({ region: "us-east-1" });
-await client.send(new CreateBucketCommand({ Bucket: "my-new-bucket" }));`,
-      },
-      {
-        lang: 'Raw HTTP',
-        code: `PUT /my-new-bucket HTTP/1.1
-Host: s3.amazonaws.com
-Authorization: AWS4-HMAC-SHA256 Credential=...
-x-amz-date: 20240101T000000Z`,
-      },
-    ],
-  },
-  {
-    id: 'console',
-    icon: 'WEB',
-    color: '#3fb950',
-    bg: '#0d2e1a',
-    title: 'AWS Console',
-    subtitle: 'Browser-based bucket creation via the AWS Management Console',
-    desc: 'The AWS Management Console provides a guided wizard. Behind the scenes the browser sends a signed PUT request to the S3 endpoint on your behalf.',
-    examples: [
-      {
-        lang: 'Browser flow',
-        code: `1. Navigate to https://s3.console.aws.amazon.com/s3/
-2. Click "Create bucket"
-3. Enter bucket name and select region
-4. Configure options (versioning, encryption, ACL)
-5. Click "Create bucket"
-   -> Console calls PUT /<bucket-name> via internal API`,
-      },
-    ],
-  },
-  {
-    id: 'iac',
-    icon: 'IaC',
-    color: '#79c0ff',
-    bg: '#0d1f2d',
-    title: 'IaC',
-    subtitle: 'Infrastructure as Code tools (Terraform, CloudFormation, CDK)',
-    desc: 'Infrastructure-as-Code tools declare the desired state. During apply/deploy they call the S3 API to reconcile, issuing a PUT to create the bucket.',
-    examples: [
-      {
-        lang: 'Terraform',
-        code: `resource "aws_s3_bucket" "example" {
-  bucket = "my-new-bucket"
-  tags = {
-    Environment = "production"
+const S3_EVENTS = [
+  { value: 's3:ObjectCreated:*',                      label: 'All object create events' },
+  { value: 's3:ObjectCreated:Put',                    label: 'PUT' },
+  { value: 's3:ObjectCreated:Post',                   label: 'POST' },
+  { value: 's3:ObjectCreated:Copy',                   label: 'Copy' },
+  { value: 's3:ObjectCreated:CompleteMultipartUpload', label: 'CompleteMultipartUpload' },
+  { value: 's3:ObjectRemoved:*',                      label: 'All object delete events' },
+  { value: 's3:ObjectRemoved:Delete',                 label: 'Delete' },
+  { value: 's3:ObjectRemoved:DeleteMarkerCreated',    label: 'DeleteMarkerCreated' },
+  { value: 's3:ObjectRestore:*',                      label: 'All restore events' },
+]
+
+function extractFuncName(arn) {
+  if (!arn) return '—'
+  const parts = arn.split(':')
+  return parts[parts.length - 1]
+}
+
+function AddTriggerModal({ bucket, onClose, onDone }) {
+  const [functions, setFunctions] = useState([])
+  const [loadingFns, setLoadingFns] = useState(true)
+  const [form, setForm] = useState({
+    functionName: '',
+    events: ['s3:ObjectCreated:*'],
+    prefix: '',
+    suffix: '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    api.get('/aws/lambda/functions')
+      .then(({ data }) => setFunctions(data.Functions || []))
+      .catch(() => setFunctions([]))
+      .finally(() => setLoadingFns(false))
+  }, [])
+
+  useEffect(() => {
+    if (functions.length && !form.functionName) {
+      setForm(f => ({ ...f, functionName: functions[0].FunctionName }))
+    }
+  }, [functions, form.functionName])
+
+  const toggleEvent = (val) => {
+    setForm(f => ({
+      ...f,
+      events: f.events.includes(val)
+        ? f.events.filter(e => e !== val)
+        : [...f.events, val],
+    }))
   }
-}`,
-      },
-      {
-        lang: 'CloudFormation',
-        code: `Resources:
-  MyBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: my-new-bucket
-      VersioningConfiguration:
-        Status: Enabled`,
-      },
-      {
-        lang: 'AWS CDK (TypeScript)',
-        code: `import * as s3 from 'aws-cdk-lib/aws-s3';
-const bucket = new s3.Bucket(this, 'MyBucket', {
-  bucketName: 'my-new-bucket',
-  versioned: true,
-});`,
-      },
-    ],
-  },
-  {
-    id: 'cli',
-    icon: 'CLI',
-    color: '#4ade80',
-    bg: '#0d2e1a',
-    title: 'AWS CLI',
-    subtitle: 'Command-line interface using s3api or s3 high-level commands',
-    desc: 'The AWS CLI wraps the SDK. Both the high-level s3 command and the low-level s3api command ultimately issue the same signed PUT request.',
-    examples: [
-      {
-        lang: 's3api (low-level)',
-        code: `# Low-level command maps 1:1 to the API
-aws s3api create-bucket \\
-  --bucket my-new-bucket \\
-  --region us-east-1`,
-      },
-      {
-        lang: 's3 mb (high-level)',
-        code: `# High-level convenience command
-aws s3 mb s3://my-new-bucket --region us-east-1`,
-      },
-    ],
-  },
-  {
-    id: 'lambda',
-    icon: 'LMB',
-    color: '#d2a8ff',
-    bg: '#1e1030',
-    title: 'Event-driven / Lambda',
-    subtitle: 'Automated creation via Lambda, GitHub Actions, or EventBridge',
-    desc: 'Serverless functions and CI/CD pipelines can create buckets in response to events. The function or runner calls the SDK or CLI internally.',
-    examples: [
-      {
-        lang: 'AWS Lambda (Python)',
-        code: `import boto3
-def handler(event, context):
-    s3 = boto3.client('s3')
-    bucket_name = event['bucket_name']
-    s3.create_bucket(Bucket=bucket_name)
-    return {"status": "created", "bucket": bucket_name}`,
-      },
-      {
-        lang: 'GitHub Actions',
-        code: `- name: Create S3 Bucket
-  env:
-    AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
-    AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  run: |
-    aws s3 mb s3://my-new-bucket --region us-east-1`,
-      },
-      {
-        lang: 'EventBridge + Lambda',
-        code: `# EventBridge rule triggers Lambda on schedule or event
-# Lambda function then calls s3.create_bucket()
-# e.g., auto-provision buckets for new tenants`,
-      },
-    ],
-  },
-  {
-    id: 'third-party',
-    icon: '3RD',
-    color: '#ffa657',
-    bg: '#2d1e0f',
-    title: 'Third-party tools',
-    subtitle: 'Pulumi, Ansible, Serverless Framework, and other toolchains',
-    desc: 'Third-party tools integrate with AWS APIs using their own SDKs or by calling the AWS CLI. They all converge on the same signed PUT to create a bucket.',
-    examples: [
-      {
-        lang: 'Pulumi (TypeScript)',
-        code: `import * as aws from "@pulumi/aws";
-const bucket = new aws.s3.Bucket("my-new-bucket", {
-  bucket: "my-new-bucket",
-  tags: { Environment: "production" },
-});`,
-      },
-      {
-        lang: 'Ansible',
-        code: `- name: Create S3 bucket
-  amazon.aws.s3_bucket:
-    name: my-new-bucket
-    state: present
-    region: us-east-1`,
-      },
-      {
-        lang: 'Serverless Framework',
-        code: `# serverless.yml
-resources:
-  Resources:
-    MyBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: my-new-bucket`,
-      },
-    ],
-  },
-];
 
-const FLOW_STEPS = [
-  { label: 'Trigger', sub: 'SDK / CLI / Console / IaC' },
-  { label: 'Sign request', sub: 'SigV4' },
-  { label: 'PUT /<bucket>', sub: 'HTTPS to S3 endpoint' },
-  { label: 'Validate', sub: 'Name, region, permissions' },
-  { label: 'Bucket created', sub: 'HTTP 200 OK' },
-];
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr('')
+    if (!form.functionName) return setErr('Select a Lambda function.')
+    if (!form.events.length) return setErr('Select at least one event type.')
+    setBusy(true)
+    try {
+      await api.post(`/aws/s3/buckets/${bucket}/notification`, {
+        functionName: form.functionName,
+        events: form.events,
+        prefix: form.prefix || undefined,
+        suffix: form.suffix || undefined,
+      })
+      onDone()
+      onClose()
+    } catch (ex) {
+      setErr(ex.response?.data?.message || ex.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
-export default function BucketTriggers() {
   return (
-    <div className={styles.wrapper}>
-      {/* Top flow banner */}
-      <div className={styles.banner}>
-        <div className={styles.bannerInner}>
-          {FLOW_STEPS.map((step, idx) => (
-            <div key={step.label} className={styles.bannerItem}>
-              <div className={styles.stepBox}>
-                <span className={styles.stepLabel}>{step.label}</span>
-                <span className={styles.stepSub}>{step.sub}</span>
-              </div>
-              {idx < FLOW_STEPS.length - 1 && (
-                <span className={styles.arrow}>&#8594;</span>
-              )}
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalHead}>
+          <h3 className={styles.modalTitle}>Add Lambda Trigger</h3>
+          <button className={styles.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <form onSubmit={submit}>
+          <div className={styles.modalBody}>
+            <div className={styles.field}>
+              <label className={styles.label}>Lambda Function</label>
+              {loadingFns
+                ? <p className={styles.hint}>Loading functions…</p>
+                : functions.length === 0
+                  ? <p className={styles.err}>No Lambda functions found. Create one first.</p>
+                  : (
+                    <>
+                      <select
+                        className={styles.input}
+                        value={form.functionName}
+                        onChange={e => setForm(f => ({ ...f, functionName: e.target.value }))}
+                      >
+                        {functions.map(fn => (
+                          <option key={fn.FunctionName} value={fn.FunctionName}>{fn.FunctionName}</option>
+                        ))}
+                      </select>
+                      {(() => {
+                        const sel = functions.find(fn => fn.FunctionName === form.functionName)
+                        return sel?.Handler
+                          ? <p className={styles.hint}>Handler: <code className={styles.handlerCode}>{sel.Handler}</code> · Runtime: {sel.Runtime}</p>
+                          : null
+                      })()}
+                    </>
+                  )
+              }
             </div>
-          ))}
+
+            <div className={styles.field}>
+              <label className={styles.label}>Event Types</label>
+              <div className={styles.checkGrid}>
+                {S3_EVENTS.map(ev => (
+                  <label key={ev.value} className={styles.checkRow}>
+                    <input
+                      type="checkbox"
+                      checked={form.events.includes(ev.value)}
+                      onChange={() => toggleEvent(ev.value)}
+                      className={styles.checkbox}
+                    />
+                    <span className={styles.checkLabel}>{ev.label}</span>
+                    <span className={styles.checkValue}>{ev.value}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.filterRow}>
+              <div className={styles.field}>
+                <label className={styles.label}>Prefix filter <span className={styles.optional}>(optional)</span></label>
+                <input
+                  className={styles.input}
+                  value={form.prefix}
+                  onChange={e => setForm(f => ({ ...f, prefix: e.target.value }))}
+                  placeholder="e.g. uploads/"
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Suffix filter <span className={styles.optional}>(optional)</span></label>
+                <input
+                  className={styles.input}
+                  value={form.suffix}
+                  onChange={e => setForm(f => ({ ...f, suffix: e.target.value }))}
+                  placeholder="e.g. .jpg"
+                />
+              </div>
+            </div>
+
+            {err && <p className={styles.err}>{err}</p>}
+          </div>
+          <div className={styles.modalFoot}>
+            <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onClose}>Cancel</button>
+            <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy || loadingFns || functions.length === 0}>
+              {busy ? 'Adding…' : 'Add Trigger'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function BucketTriggers({ bucket }) {
+  const [triggers, setTriggers] = useState([])
+  const [funcMap, setFuncMap] = useState({})   // functionName → { handler, runtime }
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [deleting, setDeleting] = useState(null)
+
+  const load = useCallback(async () => {
+    if (!bucket) return
+    setLoading(true); setErr('')
+    try {
+      const [notifRes, fnRes] = await Promise.all([
+        api.get(`/aws/s3/buckets/${bucket}/notification`),
+        api.get('/aws/lambda/functions'),
+      ])
+      setTriggers(notifRes.data.LambdaFunctionConfigurations || [])
+      const map = {}
+      for (const fn of fnRes.data.Functions || []) {
+        map[fn.FunctionName] = { handler: fn.Handler, runtime: fn.Runtime }
+      }
+      setFuncMap(map)
+    } catch (ex) {
+      setErr(ex.response?.data?.message || ex.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [bucket])
+
+  useEffect(() => { load() }, [load])
+
+  const handleDelete = async (id) => {
+    setDeleting(id)
+    try {
+      await api.delete(`/aws/s3/buckets/${bucket}/notification/${id}`)
+      setTriggers(prev => prev.filter(t => t.Id !== id))
+    } catch (ex) {
+      setErr(ex.response?.data?.message || ex.message)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className={styles.page}>
+
+      {/* Flow diagram */}
+      <div className={styles.flow}>
+        <div className={styles.flowSteps}>
+          <div className={styles.flowStep}>
+            <span className={styles.flowIcon}>🪣</span>
+            <span className={styles.flowLabel}>S3 Bucket</span>
+            <span className={styles.flowSub}>{bucket}</span>
+          </div>
+          <span className={styles.flowArrow}>→</span>
+          <div className={styles.flowStep}>
+            <span className={styles.flowIcon}>⚡</span>
+            <span className={styles.flowLabel}>Event</span>
+            <span className={styles.flowSub}>ObjectCreated / Deleted…</span>
+          </div>
+          <span className={styles.flowArrow}>→</span>
+          <div className={styles.flowStep}>
+            <span className={styles.flowIcon}>λ</span>
+            <span className={styles.flowLabel}>Lambda</span>
+            <span className={styles.flowSub}>Invoked asynchronously</span>
+          </div>
         </div>
       </div>
 
-      {/* Trigger cards grid */}
-      <div className={styles.grid}>
-        {TRIGGERS.map((trigger) => (
-          <div key={trigger.id} className={styles.card}>
-            {/* Icon box + header */}
-            <div className={styles.cardHeader}>
-              <div
-                className={styles.iconBox}
-                style={{ backgroundColor: trigger.bg, color: trigger.color }}
-              >
-                {trigger.icon}
-              </div>
-              <div className={styles.cardTitles}>
-                <span className={styles.cardTitle} style={{ color: trigger.color }}>
-                  {trigger.title}
-                </span>
-                <span className={styles.cardSubtitle}>{trigger.subtitle}</span>
-              </div>
-            </div>
+      {/* Toolbar */}
+      <div className={styles.toolbar}>
+        <span className={styles.sectionTitle}>Lambda Triggers ({triggers.length})</span>
+        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowAdd(true)}>
+          + Add Trigger
+        </button>
+      </div>
 
-            {/* Description */}
-            <p className={styles.cardDesc}>{trigger.desc}</p>
+      {err && <p className={styles.errBanner}>{err}</p>}
 
-            {/* Code examples */}
-            <div className={styles.examples}>
-              {trigger.examples.map((ex) => (
-                <div key={ex.lang} className={styles.exampleBlock}>
-                  <div className={styles.exampleHeader}>
-                    <span className={styles.langLabel}>{ex.lang}</span>
+      {/* Triggers list */}
+      {loading ? (
+        <p className={styles.empty}>Loading…</p>
+      ) : triggers.length === 0 ? (
+        <div className={styles.empty}>
+          <span className={styles.emptyIcon}>⚡</span>
+          <p>No Lambda triggers configured for this bucket.</p>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setShowAdd(true)}>
+            Add your first trigger
+          </button>
+        </div>
+      ) : (
+        <div className={styles.triggerList}>
+          {triggers.map(t => {
+            const filterRules = t.Filter?.Key?.FilterRules || []
+            const prefix = filterRules.find(r => r.Name === 'prefix')?.Value
+            const suffix = filterRules.find(r => r.Name === 'suffix')?.Value
+            const funcName = extractFuncName(t.LambdaFunctionArn)
+            const fnMeta = funcMap[funcName]
+            return (
+              <div key={t.Id} className={styles.triggerCard}>
+                <div className={styles.triggerCardHead}>
+                  <div className={styles.triggerInfo}>
+                    <div className={styles.triggerConnect}>
+                      <span className={styles.triggerBucket}>🪣 {bucket}</span>
+                      <span className={styles.triggerArrow}>→</span>
+                      <span className={styles.triggerFunc}>λ {funcName}</span>
+                      {fnMeta?.handler && (
+                        <span className={styles.handlerBadge}>{fnMeta.handler}</span>
+                      )}
+                    </div>
+                    <span className={styles.triggerId}>{t.Id}</span>
                   </div>
-                  <pre className={styles.code}>
-                    <code>{ex.code}</code>
-                  </pre>
+                  <button
+                    className={`${styles.btn} ${styles.btnDanger}`}
+                    onClick={() => handleDelete(t.Id)}
+                    disabled={deleting === t.Id}
+                  >
+                    {deleting === t.Id ? 'Removing…' : 'Remove'}
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {/* Bottom info box */}
-      <div className={styles.infoBox}>
-        <span className={styles.infoIcon}>&#9432;</span>
-        <span className={styles.infoText}>
-          In every case the root action is identical &mdash; a signed HTTP{' '}
-          <code className={styles.infoCode}>PUT /&lt;bucket-name&gt;</code> to the S3 endpoint.
-        </span>
-      </div>
+                <div className={styles.triggerMeta}>
+                  <div className={styles.metaRow}>
+                    <span className={styles.metaLabel}>Function ARN</span>
+                    <span className={styles.metaValue}>{t.LambdaFunctionArn}</span>
+                  </div>
+                  {fnMeta && (
+                    <div className={styles.metaRow}>
+                      <span className={styles.metaLabel}>Handler</span>
+                      <span className={`${styles.metaValue} ${styles.handlerValue}`}>
+                        {fnMeta.handler || '—'}
+                        {fnMeta.runtime && <span className={styles.runtimeChip}>{fnMeta.runtime}</span>}
+                      </span>
+                    </div>
+                  )}
+                  <div className={styles.metaRow}>
+                    <span className={styles.metaLabel}>Events</span>
+                    <div className={styles.eventTags}>
+                      {(t.Events || []).map(ev => (
+                        <span key={ev} className={styles.eventTag}>{ev}</span>
+                      ))}
+                    </div>
+                  </div>
+                  {(prefix || suffix) && (
+                    <div className={styles.metaRow}>
+                      <span className={styles.metaLabel}>Filters</span>
+                      <span className={styles.metaValue}>
+                        {prefix && <span className={styles.filterChip}>prefix: <code>{prefix}</code></span>}
+                        {suffix && <span className={styles.filterChip}>suffix: <code>{suffix}</code></span>}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showAdd && (
+        <AddTriggerModal
+          bucket={bucket}
+          onClose={() => setShowAdd(false)}
+          onDone={load}
+        />
+      )}
     </div>
-  );
+  )
 }

@@ -11,6 +11,7 @@ const {
   GetBucketTaggingCommand, PutBucketTaggingCommand, DeleteBucketTaggingCommand,
   GetBucketOwnershipControlsCommand, PutBucketOwnershipControlsCommand,
   GetObjectLockConfigurationCommand, PutObjectLockConfigurationCommand,
+  GetBucketNotificationConfigurationCommand, PutBucketNotificationConfigurationCommand,
 } = require('@aws-sdk/client-s3')
 const {
   DescribeInstancesCommand, DescribeInstanceStatusCommand,
@@ -26,7 +27,58 @@ const {
 } = require('@aws-sdk/client-ec2')
 const {
   ListFunctionsCommand, GetFunctionCommand, DeleteFunctionCommand, InvokeCommand,
+  CreateFunctionCommand, UpdateFunctionCodeCommand,
+  ListEventSourceMappingsCommand, CreateEventSourceMappingCommand, DeleteEventSourceMappingCommand,
 } = require('@aws-sdk/client-lambda')
+
+/* ── ZIP helper for inline Lambda code ── */
+const zlib = require('zlib')
+function _crc32Table() {
+  const t = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1)
+    t[n] = c
+  }
+  return t
+}
+const CRC_TABLE = _crc32Table()
+function _crc32(buf) {
+  let crc = 0xffffffff
+  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buf[i]) & 0xff]
+  return (crc ^ 0xffffffff) >>> 0
+}
+function buildZip(filename, content) {
+  const fn  = Buffer.from(filename)
+  const raw = Buffer.from(content, 'utf-8')
+  const cmp = zlib.deflateRawSync(raw)
+  const crc = _crc32(raw)
+  const lh  = Buffer.alloc(30 + fn.length)
+  lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(0, 6)
+  lh.writeUInt16LE(8, 8); lh.writeUInt16LE(0, 10); lh.writeUInt16LE(0, 12)
+  lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(cmp.length, 18); lh.writeUInt32LE(raw.length, 22)
+  lh.writeUInt16LE(fn.length, 26); lh.writeUInt16LE(0, 28); fn.copy(lh, 30)
+  const localSize = lh.length + cmp.length
+  const cd = Buffer.alloc(46 + fn.length)
+  cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6)
+  cd.writeUInt16LE(0, 8); cd.writeUInt16LE(8, 10); cd.writeUInt16LE(0, 12); cd.writeUInt16LE(0, 14)
+  cd.writeUInt32LE(crc, 16); cd.writeUInt32LE(cmp.length, 20); cd.writeUInt32LE(raw.length, 24)
+  cd.writeUInt16LE(fn.length, 28); cd.writeUInt16LE(0, 30); cd.writeUInt16LE(0, 32)
+  cd.writeUInt16LE(0, 34); cd.writeUInt16LE(0, 36); cd.writeUInt32LE(0, 38); cd.writeUInt32LE(0, 42)
+  fn.copy(cd, 46)
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0); eocd.writeUInt16LE(0, 4); eocd.writeUInt16LE(0, 6)
+  eocd.writeUInt16LE(1, 8); eocd.writeUInt16LE(1, 10)
+  eocd.writeUInt32LE(cd.length, 12); eocd.writeUInt32LE(localSize, 16); eocd.writeUInt16LE(0, 20)
+  return Buffer.concat([lh, cmp, cd, eocd])
+}
+const RUNTIME_DEFAULTS = {
+  'nodejs18.x':   { file: 'index.js',             handler: 'index.handler',                   code: "exports.handler = async (event) => ({\n  statusCode: 200,\n  body: JSON.stringify('Hello from Lambda!'),\n});\n" },
+  'nodejs16.x':   { file: 'index.js',             handler: 'index.handler',                   code: "exports.handler = async (event) => ({\n  statusCode: 200,\n  body: JSON.stringify('Hello from Lambda!'),\n});\n" },
+  'python3.11':   { file: 'lambda_function.py',   handler: 'lambda_function.lambda_handler',  code: "def lambda_handler(event, context):\n    return {\n        'statusCode': 200,\n        'body': 'Hello from Lambda!'\n    }\n" },
+  'python3.9':    { file: 'lambda_function.py',   handler: 'lambda_function.lambda_handler',  code: "def lambda_handler(event, context):\n    return {\n        'statusCode': 200,\n        'body': 'Hello from Lambda!'\n    }\n" },
+  'python3.8':    { file: 'lambda_function.py',   handler: 'lambda_function.lambda_handler',  code: "def lambda_handler(event, context):\n    return {\n        'statusCode': 200,\n        'body': 'Hello from Lambda!'\n    }\n" },
+}
 const {
   ListUsersCommand, CreateUserCommand, DeleteUserCommand,
   ListGroupsCommand, CreateGroupCommand, DeleteGroupCommand, AddUserToGroupCommand, RemoveUserFromGroupCommand,
@@ -395,7 +447,12 @@ async function deleteLifecycle(req, res) {
 }
 
 async function runInstances(req, res) {
-  const { imageId, instanceType = 't2.micro', minCount = 1, maxCount = 1, keyName, userData } = req.body
+  const {
+    imageId, instanceType = 't2.micro', minCount = 1, maxCount = 1,
+    keyName, userData,
+    subnetId, securityGroupIds, associatePublicIpAddress,
+    name, tags,
+  } = req.body
   if (!imageId) return res.status(400).json({ message: 'Missing imageId' })
   try {
     const params = {
@@ -406,6 +463,23 @@ async function runInstances(req, res) {
     }
     if (keyName) params.KeyName = keyName
     if (userData) params.UserData = Buffer.from(userData).toString('base64')
+    if (subnetId || securityGroupIds?.length || associatePublicIpAddress !== undefined) {
+      const iface = { DeviceIndex: 0 }
+      if (subnetId) iface.SubnetId = subnetId
+      if (securityGroupIds?.length) iface.Groups = securityGroupIds
+      if (associatePublicIpAddress !== undefined) iface.AssociatePublicIpAddress = Boolean(associatePublicIpAddress)
+      params.NetworkInterfaces = [iface]
+    }
+    const tagList = []
+    if (name) tagList.push({ Key: 'Name', Value: name })
+    if (Array.isArray(tags)) {
+      for (const t of tags) {
+        if (t.key && t.value) tagList.push({ Key: t.key, Value: t.value })
+      }
+    }
+    if (tagList.length) {
+      params.TagSpecifications = [{ ResourceType: 'instance', Tags: tagList }]
+    }
     const { Instances } = await ec2Client.send(new RunInstancesCommand(params))
     res.json({ Instances: Instances || [], message: `${Instances?.length || 0} instance(s) launched` })
   } catch (err) {
@@ -741,6 +815,66 @@ async function deleteVolume(req, res) {
   }
 }
 
+/* ── S3 Bucket Notifications (Lambda triggers) ── */
+async function getBucketNotification(req, res) {
+  const { name } = req.params
+  try {
+    const result = await s3Client.send(new GetBucketNotificationConfigurationCommand({ Bucket: name }))
+    res.json({ LambdaFunctionConfigurations: result.LambdaFunctionConfigurations || [] })
+  } catch (err) {
+    res.json({ LambdaFunctionConfigurations: [] })
+  }
+}
+
+async function addBucketTrigger(req, res) {
+  const { name } = req.params
+  const { functionName, events, prefix, suffix } = req.body
+  if (!functionName || !events?.length) {
+    return res.status(400).json({ message: 'functionName and events are required.' })
+  }
+  try {
+    const current = await s3Client.send(new GetBucketNotificationConfigurationCommand({ Bucket: name }))
+    const existing = current.LambdaFunctionConfigurations || []
+    const region = 'us-east-1'
+    const account = '000000000000'
+    const functionArn = `arn:aws:lambda:${region}:${account}:function:${functionName}`
+    const id = `trigger-${Date.now()}`
+    const filterRules = []
+    if (prefix) filterRules.push({ Name: 'prefix', Value: prefix })
+    if (suffix) filterRules.push({ Name: 'suffix', Value: suffix })
+    const newTrigger = {
+      Id: id,
+      LambdaFunctionArn: functionArn,
+      Events: events,
+      ...(filterRules.length ? { Filter: { Key: { FilterRules: filterRules } } } : {}),
+    }
+    await s3Client.send(new PutBucketNotificationConfigurationCommand({
+      Bucket: name,
+      NotificationConfiguration: {
+        LambdaFunctionConfigurations: [...existing, newTrigger],
+      },
+    }))
+    res.json(newTrigger)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteBucketTrigger(req, res) {
+  const { name, id } = req.params
+  try {
+    const current = await s3Client.send(new GetBucketNotificationConfigurationCommand({ Bucket: name }))
+    const filtered = (current.LambdaFunctionConfigurations || []).filter(t => t.Id !== id)
+    await s3Client.send(new PutBucketNotificationConfigurationCommand({
+      Bucket: name,
+      NotificationConfiguration: { LambdaFunctionConfigurations: filtered },
+    }))
+    res.json({ message: `Trigger "${id}" removed.` })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
 /* ── Lambda ── */
 async function listFunctions(req, res) {
   try {
@@ -786,6 +920,90 @@ async function invokeFunction(req, res) {
       LogResult: result.LogResult ? Buffer.from(result.LogResult, 'base64').toString('utf-8') : null,
       Payload: responsePayload,
     })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createFunction(req, res) {
+  const { name, runtime, handler, description, role, code, imageUri } = req.body
+  if (!name) return res.status(400).json({ message: 'name is required.' })
+  try {
+    const params = {
+      FunctionName: name,
+      Description:  description || '',
+      Role:         role || 'arn:aws:iam::000000000000:role/lambda-role',
+    }
+    if (imageUri) {
+      params.PackageType = 'Image'
+      params.Code = { ImageUri: imageUri }
+    } else {
+      if (!runtime || !handler) {
+        return res.status(400).json({ message: 'runtime and handler are required for zip-based functions.' })
+      }
+      const defaults = RUNTIME_DEFAULTS[runtime] || { file: 'index.js' }
+      params.PackageType = 'Zip'
+      params.Runtime = runtime
+      params.Handler = handler
+      params.Code = { ZipFile: buildZip(defaults.file || 'index.js', code || defaults.code || '') }
+    }
+    const result = await lambdaClient.send(new CreateFunctionCommand(params))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function updateFunctionCode(req, res) {
+  const { name } = req.params
+  const { runtime, code } = req.body
+  try {
+    const defaults = RUNTIME_DEFAULTS[runtime] || { file: 'index.js' }
+    const zipBuffer = buildZip(defaults.file || 'index.js', code || '')
+    const result = await lambdaClient.send(new UpdateFunctionCodeCommand({
+      FunctionName: name,
+      ZipFile: zipBuffer,
+    }))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function listEventSourceMappings(req, res) {
+  const { functionName } = req.query
+  try {
+    const params = functionName ? { FunctionName: functionName } : {}
+    const { EventSourceMappings } = await lambdaClient.send(new ListEventSourceMappingsCommand(params))
+    res.json({ EventSourceMappings: EventSourceMappings || [] })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function createEventSourceMapping(req, res) {
+  const { functionName, eventSourceArn, batchSize, startingPosition } = req.body
+  if (!functionName || !eventSourceArn) {
+    return res.status(400).json({ message: 'functionName and eventSourceArn are required.' })
+  }
+  try {
+    const result = await lambdaClient.send(new CreateEventSourceMappingCommand({
+      FunctionName: functionName,
+      EventSourceArn: eventSourceArn,
+      BatchSize: batchSize || 10,
+      StartingPosition: startingPosition || 'LATEST',
+    }))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+async function deleteEventSourceMapping(req, res) {
+  const { uuid } = req.params
+  try {
+    await lambdaClient.send(new DeleteEventSourceMappingCommand({ UUID: uuid }))
+    res.json({ message: `Event source mapping "${uuid}" deleted.` })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -1583,7 +1801,9 @@ module.exports = {
   describeVpcs, createVpc, describeSubnets,
   describeImages,
   describeVolumes, createVolume, attachVolume, detachVolume, deleteVolume,
-  listFunctions, getFunction, deleteFunction, invokeFunction,
+  getBucketNotification, addBucketTrigger, deleteBucketTrigger,
+  listFunctions, getFunction, createFunction, deleteFunction, invokeFunction, updateFunctionCode,
+  listEventSourceMappings, createEventSourceMapping, deleteEventSourceMapping,
   listUsers, createUser, deleteUser,
   listGroups, createGroup, deleteGroup, addUserToGroup,
   listRoles, createRole, deleteRole,

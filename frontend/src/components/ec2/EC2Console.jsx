@@ -3,6 +3,251 @@ import api from '../../services/api'
 import styles from './EC2Console.module.css'
 
 /* ─────────────────────────────────────────
+   Instance Types
+───────────────────────────────────────── */
+const INSTANCE_TYPES = [
+  /* ── x86_64 ── */
+  { id: 't2.micro',    arch: 'x86_64', family: 't2',  vcpu: 1,  memory: '1 GiB',   currentGen: true,  freeTier: true,  pricing: { linux: 0.0116, windows: 0.0162, rhel: 0.0268, ubuntuPro: 0.0142, suse: 0.0116 } },
+  { id: 't2.small',    arch: 'x86_64', family: 't2',  vcpu: 1,  memory: '2 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0230, windows: 0.0332, rhel: 0.0380, ubuntuPro: 0.0270, suse: 0.0230 } },
+  { id: 't2.medium',   arch: 'x86_64', family: 't2',  vcpu: 2,  memory: '4 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0464, windows: 0.0664, rhel: 0.0764, ubuntuPro: 0.0540, suse: 0.0464 } },
+  { id: 't2.large',    arch: 'x86_64', family: 't2',  vcpu: 2,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0928, windows: 0.1128, rhel: 0.1228, ubuntuPro: 0.1004, suse: 0.0928 } },
+  { id: 't3.micro',    arch: 'x86_64', family: 't3',  vcpu: 2,  memory: '1 GiB',   currentGen: true,  freeTier: true,  pricing: { linux: 0.0104, windows: 0.0160, rhel: 0.0264, ubuntuPro: 0.0140, suse: 0.0104 } },
+  { id: 't3.small',    arch: 'x86_64', family: 't3',  vcpu: 2,  memory: '2 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0208, windows: 0.0320, rhel: 0.0368, ubuntuPro: 0.0264, suse: 0.0208 } },
+  { id: 't3.medium',   arch: 'x86_64', family: 't3',  vcpu: 2,  memory: '4 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0416, windows: 0.0640, rhel: 0.0736, ubuntuPro: 0.0512, suse: 0.0416 } },
+  { id: 't3.large',    arch: 'x86_64', family: 't3',  vcpu: 2,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0832, windows: 0.1280, rhel: 0.1472, ubuntuPro: 0.1024, suse: 0.0832 } },
+  { id: 'm5.large',    arch: 'x86_64', family: 'm5',  vcpu: 2,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0960, windows: 0.1880, rhel: 0.1660, ubuntuPro: 0.1110, suse: 0.1120 } },
+  { id: 'm5.xlarge',   arch: 'x86_64', family: 'm5',  vcpu: 4,  memory: '16 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.1920, windows: 0.3760, rhel: 0.3320, ubuntuPro: 0.2220, suse: 0.2240 } },
+  { id: 'm5.2xlarge',  arch: 'x86_64', family: 'm5',  vcpu: 8,  memory: '32 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.3840, windows: 0.7520, rhel: 0.6640, ubuntuPro: 0.4440, suse: 0.4480 } },
+  { id: 'c5.large',    arch: 'x86_64', family: 'c5',  vcpu: 2,  memory: '4 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0850, windows: 0.1770, rhel: 0.1550, ubuntuPro: 0.1000, suse: 0.1010 } },
+  { id: 'c5.xlarge',   arch: 'x86_64', family: 'c5',  vcpu: 4,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.1700, windows: 0.3540, rhel: 0.3100, ubuntuPro: 0.2000, suse: 0.2020 } },
+  { id: 'r5.large',    arch: 'x86_64', family: 'r5',  vcpu: 2,  memory: '16 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.1260, windows: 0.2520, rhel: 0.2220, ubuntuPro: 0.1510, suse: 0.1480 } },
+  { id: 'r5.xlarge',   arch: 'x86_64', family: 'r5',  vcpu: 4,  memory: '32 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.2520, windows: 0.5040, rhel: 0.4440, ubuntuPro: 0.3020, suse: 0.2960 } },
+  /* ── arm64 ── */
+  { id: 't4g.micro',   arch: 'arm64',  family: 't4g', vcpu: 2,  memory: '1 GiB',   currentGen: true,  freeTier: true,  pricing: { linux: 0.0084, windows: null,   rhel: 0.0234, ubuntuPro: 0.0110, suse: 0.0084 } },
+  { id: 't4g.small',   arch: 'arm64',  family: 't4g', vcpu: 2,  memory: '2 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0168, windows: null,   rhel: 0.0318, ubuntuPro: 0.0194, suse: 0.0168 } },
+  { id: 't4g.medium',  arch: 'arm64',  family: 't4g', vcpu: 2,  memory: '4 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0336, windows: null,   rhel: 0.0486, ubuntuPro: 0.0362, suse: 0.0336 } },
+  { id: 't4g.large',   arch: 'arm64',  family: 't4g', vcpu: 2,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0672, windows: null,   rhel: 0.0822, ubuntuPro: 0.0698, suse: 0.0672 } },
+  { id: 'm6g.large',   arch: 'arm64',  family: 'm6g', vcpu: 2,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0770, windows: null,   rhel: 0.1270, ubuntuPro: 0.0880, suse: 0.0880 } },
+  { id: 'm6g.xlarge',  arch: 'arm64',  family: 'm6g', vcpu: 4,  memory: '16 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.1540, windows: null,   rhel: 0.2540, ubuntuPro: 0.1760, suse: 0.1760 } },
+  { id: 'm6g.2xlarge', arch: 'arm64',  family: 'm6g', vcpu: 8,  memory: '32 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.3080, windows: null,   rhel: 0.5080, ubuntuPro: 0.3520, suse: 0.3520 } },
+  { id: 'c6g.large',   arch: 'arm64',  family: 'c6g', vcpu: 2,  memory: '4 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.0680, windows: null,   rhel: 0.1180, ubuntuPro: 0.0810, suse: 0.0810 } },
+  { id: 'c6g.xlarge',  arch: 'arm64',  family: 'c6g', vcpu: 4,  memory: '8 GiB',   currentGen: true,  freeTier: false, pricing: { linux: 0.1360, windows: null,   rhel: 0.2360, ubuntuPro: 0.1620, suse: 0.1620 } },
+  { id: 'r6g.large',   arch: 'arm64',  family: 'r6g', vcpu: 2,  memory: '16 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.1008, windows: null,   rhel: 0.1708, ubuntuPro: 0.1208, suse: 0.1208 } },
+  { id: 'r6g.xlarge',  arch: 'arm64',  family: 'r6g', vcpu: 4,  memory: '32 GiB',  currentGen: true,  freeTier: false, pricing: { linux: 0.2016, windows: null,   rhel: 0.3416, ubuntuPro: 0.2416, suse: 0.2416 } },
+]
+
+const DEFAULT_INSTANCE = { x86_64: 't2.micro', arm64: 't4g.micro' }
+
+function InstanceTypeCard({ it }) {
+  return (
+    <div className={styles.itCardContent}>
+      <div className={styles.itCardRow1}>
+        <span className={styles.itCardName}>{it.id}</span>
+        {it.freeTier && <span className={styles.itCardFree}>Free tier eligible</span>}
+      </div>
+      <div className={styles.itCardRow2}>
+        Family: {it.family}&nbsp;&nbsp;&nbsp;{it.vcpu} vCPU&nbsp;&nbsp;&nbsp;{it.memory} Memory&nbsp;&nbsp;&nbsp;Current generation: {it.currentGen ? 'true' : 'false'}
+      </div>
+      <div className={styles.itCardPricing}>
+        {it.pricing.windows != null && <div>On-Demand Windows base pricing: {it.pricing.windows.toFixed(4)} USD per Hour</div>}
+        <div>On-Demand RHEL base pricing: {it.pricing.rhel.toFixed(4)} USD per Hour</div>
+        <div>On-Demand Linux base pricing: {it.pricing.linux.toFixed(4)} USD per Hour</div>
+        <div>On-Demand Ubuntu Pro base pricing: {it.pricing.ubuntuPro.toFixed(4)} USD per Hour</div>
+        <div>On-Demand SUSE base pricing: {it.pricing.suse.toFixed(4)} USD per Hour</div>
+      </div>
+    </div>
+  )
+}
+
+function InstanceTypeSelector({ value, onChange, arch }) {
+  const [open, setOpen] = useState(false)
+  const [allGen, setAllGen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 300 })
+  const triggerRef = useRef(null)
+
+  // Close on outside click — only attached while open
+  useEffect(() => {
+    if (!open) return
+    const handler = () => setOpen(false)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [open])
+
+  const openDropdown = (e) => {
+    e.stopPropagation()
+    if (open) { setOpen(false); return }
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    setOpen(true)
+  }
+
+  const oldFamilies = ['t1', 'm1', 'c1', 'm2', 'c3', 'm3']
+  const filtered = INSTANCE_TYPES.filter(it => {
+    if (arch && it.arch !== arch) return false
+    if (!allGen && oldFamilies.some(f => it.family === f)) return false
+    if (search && !it.id.toLowerCase().includes(search.toLowerCase())) return false
+    return true
+  })
+
+  const selected = INSTANCE_TYPES.find(it => it.id === value) || INSTANCE_TYPES[0]
+
+  return (
+    <div className={styles.itSelector}>
+      <div className={styles.itSelectorMain}>
+        {/* Selected card trigger */}
+        <div
+          ref={triggerRef}
+          className={`${styles.itTrigger} ${open ? styles.itTriggerOpen : ''}`}
+          onClick={openDropdown}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && openDropdown(e)}
+        >
+          <InstanceTypeCard it={selected} />
+          <span className={styles.itChevron}>▼</span>
+        </div>
+
+        {/* Dropdown — position: fixed to escape overflow:hidden/auto ancestors */}
+        {open && (
+          <div
+            className={styles.itDropdown}
+            style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={styles.itDropdownHead}>
+              <input
+                className={styles.itSearch}
+                placeholder="Search instance types…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className={styles.itList}>
+              {filtered.length === 0
+                ? <p className={styles.itEmpty}>No instance types match.</p>
+                : filtered.map(it => (
+                  <div
+                    key={it.id}
+                    className={`${styles.itOption} ${it.id === value ? styles.itOptionActive : ''}`}
+                    onClick={() => { onChange(it.id); setOpen(false); setSearch('') }}
+                  >
+                    <InstanceTypeCard it={it} />
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right panel */}
+      <div className={styles.itSidePanel}>
+        <label className={styles.itToggleRow}>
+          <button
+            type="button"
+            className={`${styles.itToggle} ${allGen ? styles.itToggleOn : ''}`}
+            onClick={() => setAllGen(v => !v)}
+            aria-label="Toggle all generations"
+          >
+            <span className={styles.itToggleKnob} />
+          </button>
+          <span className={styles.itToggleLabel}>All generations</span>
+        </label>
+        <span className={styles.itCompareLink}>Compare instance types</span>
+        <p className={styles.itPricingNote}>Additional costs apply for AMIs with pre-installed software</p>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────
+   Quick Start AMIs
+───────────────────────────────────────── */
+const QUICK_START_AMIS = [
+  {
+    key: 'al2023', icon: '🐧', name: 'Amazon Linux 2023', freeTier: true,
+    fullName: 'Amazon Linux 2023 AMI 2023.8.20250707.0 x86_64 HVM kernel-6.1',
+    description: 'Amazon Linux 2023 (kernel-6.1) is a modern, general purpose Linux-based OS that comes with 5 years of long term support, optimized for AWS and designed to provide a secure, stable and high-performance execution environment to develop and run cloud applications.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0c101f26f147fa7fd', bootMode: 'uefi-preferred', published: '2025-07-08', username: 'ec2-user' },
+      { arch: '64-bit (Arm)', id: 'ami-03e81965fd8e52909', bootMode: 'uefi',           published: '2025-07-08', username: 'ec2-user' },
+    ],
+  },
+  {
+    key: 'al2', icon: '🐧', name: 'Amazon Linux 2', freeTier: true,
+    fullName: 'Amazon Linux 2 AMI (HVM) - Kernel 5.10, SSD Volume Type',
+    description: 'Amazon Linux 2 is the next generation of Amazon Linux, a Linux server operating system from Amazon Web Services (AWS). It provides a secure, stable, and high-performance execution environment to develop and run cloud and enterprise applications.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0cff7528ff583bf9a', bootMode: 'legacy-bios', published: '2024-01-10', username: 'ec2-user' },
+      { arch: '64-bit (Arm)', id: 'ami-0c42ce72d0e46f9c5', bootMode: 'legacy-bios', published: '2024-01-10', username: 'ec2-user' },
+    ],
+  },
+  {
+    key: 'ubuntu2404', icon: '🟠', name: 'Ubuntu Server 24.04 LTS', freeTier: true,
+    fullName: 'Ubuntu Server 24.04 LTS (HVM), SSD Volume Type',
+    description: 'Ubuntu Server 24.04 LTS (Noble Numbat). Ubuntu is a popular open-source operating system for cloud computing with Linux kernel 6.8 and 5 years of LTS support through April 2029.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0e2c8caa4b6378d8c', bootMode: 'uefi-preferred', published: '2024-04-29', username: 'ubuntu' },
+      { arch: '64-bit (Arm)', id: 'ami-0f8d219c4e5d8b0b9', bootMode: 'uefi',           published: '2024-04-29', username: 'ubuntu' },
+    ],
+  },
+  {
+    key: 'ubuntu2204', icon: '🟠', name: 'Ubuntu Server 22.04 LTS', freeTier: true,
+    fullName: 'Ubuntu Server 22.04 LTS (HVM), SSD Volume Type',
+    description: 'Ubuntu Server 22.04 LTS (Jammy Jellyfish). Ubuntu is a popular open-source operating system for cloud computing with Linux kernel 5.15 and LTS support through April 2027.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-053b0d53c279acc90', bootMode: 'legacy-bios',    published: '2023-11-20', username: 'ubuntu' },
+      { arch: '64-bit (Arm)', id: 'ami-0cd560869e17e5e9b', bootMode: 'uefi-preferred', published: '2023-11-20', username: 'ubuntu' },
+    ],
+  },
+  {
+    key: 'windows2022', icon: '🪟', name: 'Windows Server 2022', freeTier: false,
+    fullName: 'Microsoft Windows Server 2022 Base',
+    description: 'Microsoft Windows Server 2022 Base with 64-bit architecture. AWS provides Windows Server images to help you build, host, and scale Windows workloads on AWS infrastructure.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0c7217cdde317cfec', bootMode: 'uefi', published: '2024-02-08', username: 'Administrator' },
+    ],
+  },
+  {
+    key: 'rhel9', icon: '🎩', name: 'RHEL 9', freeTier: false,
+    fullName: 'Red Hat Enterprise Linux 9 (HVM), SSD Volume Type',
+    description: 'Red Hat Enterprise Linux 9 is the latest major release of RHEL. It includes OpenSSL 3.0, kernel 5.14, and enhanced security and developer tooling for enterprise workloads.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0ba62214afa52bec7', bootMode: 'legacy-bios',    published: '2024-01-30', username: 'ec2-user' },
+      { arch: '64-bit (Arm)', id: 'ami-0b9fd9e0ed2e23ad5', bootMode: 'uefi-preferred', published: '2024-01-30', username: 'ec2-user' },
+    ],
+  },
+  {
+    key: 'suse15', icon: '🦎', name: 'SUSE Linux 15 SP5', freeTier: false,
+    fullName: 'SUSE Linux Enterprise Server 15 SP5 (HVM), SSD Volume Type',
+    description: 'SUSE Linux Enterprise Server (SLES) 15 SP5 provides a modern, modular OS for optimizing traditional IT infrastructure while simplifying digital transformation.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-0ce5f4d8e3e4b4e24', bootMode: 'legacy-bios', published: '2023-12-05', username: 'ec2-user' },
+    ],
+  },
+  {
+    key: 'debian12', icon: '🌀', name: 'Debian 12', freeTier: false,
+    fullName: 'Debian 12 (Bookworm), SSD Volume Type',
+    description: 'Debian GNU/Linux 12 (Bookworm) is the latest stable release of Debian. It provides a stable and secure base environment built around the Linux kernel 6.1.',
+    virtualization: 'hvm', enaEnabled: true, rootDeviceType: 'ebs',
+    variants: [
+      { arch: '64-bit (x86)', id: 'ami-064519b8c76274859', bootMode: 'uefi-preferred', published: '2024-03-01', username: 'admin' },
+    ],
+  },
+]
+
+/* ─────────────────────────────────────────
    Helpers
 ───────────────────────────────────────── */
 function formatDate(iso) {
@@ -77,34 +322,118 @@ function Field({ label, children, hint }) {
 /* ─────────────────────────────────────────
    MODALS
 ───────────────────────────────────────── */
-function LaunchInstanceModal({ onClose, onDone, showToast }) {
-  const [form, setForm] = useState({ imageId: '', instanceType: 't2.micro', keyName: '', minCount: 1, maxCount: 1 })
+function LaunchInstancePage({ onClose, onDone, showToast }) {
+  const [form, setForm] = useState({
+    name: '', imageId: '', instanceType: 't2.micro', keyName: '',
+    minCount: 1, maxCount: 1,
+    vpcId: '', subnetId: '', associatePublicIp: true,
+  })
+  const [selectedAmiKey, setSelectedAmiKey] = useState('al2023')
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(0)
+  const [tags, setTags] = useState([{ key: '', value: '' }])
+  const [selectedSGs, setSelectedSGs] = useState([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [userData, setUserData] = useState('')
   const [s3Buckets, setS3Buckets] = useState([])
-  const [s3BucketsLoading, setS3BucketsLoading] = useState(false)
+  const [vpcs, setVpcs] = useState([])
+  const [subnets, setSubnets] = useState([])
+  const [securityGroups, setSecurityGroups] = useState([])
+  const [netLoading, setNetLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/aws/s3/buckets')
-      .then(r => setS3Buckets(r.data.Buckets || []))
-      .catch(() => {})
+    Promise.all([
+      api.get('/aws/s3/buckets').then(r => r.data.Buckets || []).catch(() => []),
+      api.get('/aws/ec2/vpcs').then(r => r.data.Vpcs || []).catch(() => []),
+      api.get('/aws/ec2/subnets').then(r => r.data.Subnets || []).catch(() => []),
+      api.get('/aws/ec2/security-groups').then(r => r.data.SecurityGroups || []).catch(() => []),
+    ]).then(([buckets, vpcList, subnetList, sgList]) => {
+      setS3Buckets(buckets)
+      setVpcs(vpcList)
+      setSubnets(subnetList)
+      setSecurityGroups(sgList)
+      const defaultVpc = vpcList.find(v => v.IsDefault) || vpcList[0]
+      if (defaultVpc) setForm(f => ({ ...f, vpcId: defaultVpc.VpcId }))
+    }).finally(() => setNetLoading(false))
   }, [])
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const filteredSubnets = form.vpcId
+    ? subnets.filter(s => s.VpcId === form.vpcId)
+    : subnets
+
+  const filteredSGs = form.vpcId
+    ? securityGroups.filter(sg => sg.VpcId === form.vpcId)
+    : securityGroups
+
+  const toggleSG = (id) => {
+    setSelectedSGs(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const set = (k, v) => setForm(f => {
+    const next = { ...f, [k]: v }
+    if (k === 'vpcId') { next.subnetId = ''; setSelectedSGs([]) }
+    return next
+  })
+
+  const activeAmi = QUICK_START_AMIS.find(a => a.key === selectedAmiKey) || null
+  const activeVariant = activeAmi?.variants[selectedVariantIdx] || null
+
+  const archFromVariant = (variant) =>
+    variant?.arch?.includes('Arm') ? 'arm64' : 'x86_64'
+
+  const selectAmi = (key) => {
+    setSelectedAmiKey(key)
+    setSelectedVariantIdx(0)
+    const ami = QUICK_START_AMIS.find(a => a.key === key)
+    const v = ami?.variants[0]
+    if (v) {
+      set('imageId', v.id)
+      const newArch = archFromVariant(v)
+      const cur = INSTANCE_TYPES.find(it => it.id === form.instanceType)
+      if (!cur || cur.arch !== newArch) set('instanceType', DEFAULT_INSTANCE[newArch])
+    }
+  }
+
+  const selectVariant = (idx) => {
+    setSelectedVariantIdx(idx)
+    const v = activeAmi?.variants[idx]
+    if (v) {
+      set('imageId', v.id)
+      const newArch = archFromVariant(v)
+      const cur = INSTANCE_TYPES.find(it => it.id === form.instanceType)
+      if (!cur || cur.arch !== newArch) set('instanceType', DEFAULT_INSTANCE[newArch])
+    }
+  }
+
+  const currentArch = archFromVariant(activeVariant)
+
+  useEffect(() => {
+    const ami = QUICK_START_AMIS.find(a => a.key === 'al2023')
+    if (ami?.variants[0]) set('imageId', ami.variants[0].id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
+    if (!form.name.trim()) return setErr('Name is required.')
     if (!form.imageId.trim()) return setErr('AMI ID is required.')
     setBusy(true); setErr('')
     try {
+      const validTags = tags.filter(t => t.key.trim() && t.value.trim())
       await api.post('/aws/ec2/instances/run', {
+        name: form.name.trim(),
         imageId: form.imageId.trim(),
         instanceType: form.instanceType,
         minCount: Number(form.minCount),
         maxCount: Number(form.maxCount),
         ...(form.keyName.trim() ? { keyName: form.keyName.trim() } : {}),
         ...(userData.trim() ? { userData: userData.trim() } : {}),
+        ...(form.subnetId ? { subnetId: form.subnetId } : {}),
+        ...(selectedSGs.length ? { securityGroupIds: selectedSGs } : {}),
+        associatePublicIpAddress: form.associatePublicIp,
+        ...(validTags.length ? { tags: validTags } : {}),
       })
       showToast('Instance launch requested.')
       onDone()
@@ -115,47 +444,372 @@ function LaunchInstanceModal({ onClose, onDone, showToast }) {
   }
 
   return (
-    <Modal title="Launch Instance" onClose={onClose} onSubmit={submit} busy={busy} submitLabel="Launch">
-      <Field label="AMI ID *">
-        <input className={styles.fieldInput} value={form.imageId}
-          onChange={e => set('imageId', e.target.value)} placeholder="ami-0abcdef1234567890" autoFocus />
-      </Field>
-      <Field label="Instance Type">
-        <select className={styles.fieldInput} value={form.instanceType} onChange={e => set('instanceType', e.target.value)}>
-          {['t2.micro','t2.small','t2.medium','t3.micro','m5.large'].map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Key Pair Name" hint="Leave blank to launch without a key pair.">
-        <input className={styles.fieldInput} value={form.keyName}
-          onChange={e => set('keyName', e.target.value)} placeholder="my-key-pair" />
-      </Field>
-      <div className={styles.formRow}>
-        <Field label="Min Count">
-          <input className={styles.fieldInput} type="number" min="1" value={form.minCount}
-            onChange={e => set('minCount', e.target.value)} style={{ width: 100 }} />
-        </Field>
-        <Field label="Max Count">
-          <input className={styles.fieldInput} type="number" min="1" value={form.maxCount}
-            onChange={e => set('maxCount', e.target.value)} style={{ width: 100 }} />
-        </Field>
+    <div className={styles.launchPage}>
+      {/* Page header */}
+      <div className={styles.launchPageHeader}>
+        <div className={styles.launchBreadcrumb}>
+          <span className={styles.breadLink}>EC2</span>
+          <span className={styles.breadSep}>›</span>
+          <span className={styles.breadLink}>Instances</span>
+          <span className={styles.breadSep}>›</span>
+          <span className={styles.breadCurrent}>Launch an instance</span>
+        </div>
+        <h1 className={styles.launchPageTitle}>Launch an instance</h1>
       </div>
-      <div style={{ borderTop: '1px solid #30363d', marginTop: 16, paddingTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <label className={styles.fieldLabel}>User Data (optional)</label>
-          {s3Buckets.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>S3 bootstrap:</span>
-              <select
-                className={styles.fieldInput}
-                style={{ width: 'auto', fontSize: '0.8rem', padding: '2px 6px' }}
-                defaultValue=""
-                onChange={e => {
-                  const bucket = e.target.value
-                  if (!bucket) return
-                  const endpoint = 'http://localhost:4566'
-                  setUserData(
+
+      {/* Scrollable form body */}
+      <form className={styles.launchPageBody} onSubmit={submit}>
+
+        {/* Name and tags */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Name and tags</div>
+          <div className={styles.launchSectionBody}>
+            <div className={styles.launchField}>
+              <label className={styles.launchLabel}>Name *</label>
+              <input
+                className={styles.launchInput}
+                value={form.name}
+                onChange={e => set('name', e.target.value)}
+                placeholder="My instance"
+              />
+            </div>
+
+            {/* Additional tags */}
+            <div className={styles.launchTagsBlock}>
+              <div className={styles.launchTagsHeader}>
+                <span className={styles.launchLabel}>Additional tags</span>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+                  onClick={() => setTags(prev => [...prev, { key: '', value: '' }])}
+                >
+                  + Add tag
+                </button>
+              </div>
+              {tags.length > 0 && (
+                <div className={styles.launchTagList}>
+                  <div className={styles.launchTagHeaderRow}>
+                    <span className={styles.launchTagColLabel}>Key</span>
+                    <span className={styles.launchTagColLabel}>Value</span>
+                  </div>
+                  {tags.map((tag, i) => (
+                    <div key={i} className={styles.launchTagRow}>
+                      <input
+                        className={styles.launchInput}
+                        value={tag.key}
+                        onChange={e => setTags(prev => prev.map((t, j) => j === i ? { ...t, key: e.target.value } : t))}
+                        placeholder="e.g. Environment"
+                      />
+                      <input
+                        className={styles.launchInput}
+                        value={tag.value}
+                        onChange={e => setTags(prev => prev.map((t, j) => j === i ? { ...t, value: e.target.value } : t))}
+                        placeholder="e.g. Production"
+                      />
+                      <button
+                        type="button"
+                        className={styles.launchTagRemove}
+                        onClick={() => setTags(prev => prev.filter((_, j) => j !== i))}
+                        title="Remove tag"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className={styles.launchHint}>Tags are key-value pairs applied to this instance. The Name tag is set above.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Application and OS Images */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Application and OS Images (Amazon Machine Image)</div>
+          <div className={styles.launchSectionBody}>
+
+            {/* Quick Start OS tabs */}
+            <p className={styles.amiQsLabel}>Quick Start</p>
+            <div className={styles.amiTabs}>
+              {QUICK_START_AMIS.map(ami => (
+                <button
+                  key={ami.key}
+                  type="button"
+                  className={`${styles.amiTab} ${selectedAmiKey === ami.key ? styles.amiTabActive : ''}`}
+                  onClick={() => selectAmi(ami.key)}
+                >
+                  <span className={styles.amiTabIcon}>{ami.icon}</span>
+                  <span className={styles.amiTabName}>{ami.name}</span>
+                  {ami.freeTier && <span className={styles.amiTabFree}>Free tier</span>}
+                </button>
+              ))}
+            </div>
+
+            {/* Selected AMI detail panel */}
+            {activeAmi && (
+              <div className={styles.amiPanel}>
+                {/* Header */}
+                <div className={styles.amiPanelHead}>
+                  <div className={styles.amiPanelTitle}>{activeAmi.fullName}</div>
+                  <div className={styles.amiPanelIds}>
+                    {activeAmi.variants.map((v, i) => (
+                      <span key={i} className={styles.amiPanelIdChip}>
+                        {v.id} ({v.arch}){i < activeAmi.variants.length - 1 ? ' /' : ''}
+                      </span>
+                    ))}
+                  </div>
+                  <div className={styles.amiPanelMeta}>
+                    <span>Virtualization: <strong>{activeAmi.virtualization}</strong></span>
+                    <span>ENA enabled: <strong>{activeAmi.enaEnabled ? 'true' : 'false'}</strong></span>
+                    <span>Root device type: <strong>{activeAmi.rootDeviceType}</strong></span>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className={styles.amiPanelDesc}>
+                  <p className={styles.amiPanelDescTitle}>Description</p>
+                  <p className={styles.amiPanelDescText}>{activeAmi.description}</p>
+                  <p className={styles.amiPanelDescFull}>{activeAmi.fullName}</p>
+                </div>
+
+                {/* Five detail columns */}
+                <div className={styles.amiPanelCols}>
+                  <div className={styles.amiPanelCol}>
+                    <span className={styles.amiColHead}>Architecture</span>
+                    <select
+                      className={styles.amiArchSelect}
+                      value={selectedVariantIdx}
+                      onChange={e => selectVariant(Number(e.target.value))}
+                    >
+                      {activeAmi.variants.map((v, i) => (
+                        <option key={i} value={i}>{v.arch}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.amiPanelCol}>
+                    <span className={styles.amiColHead}>Boot mode</span>
+                    <span className={styles.amiColVal}>{activeVariant?.bootMode}</span>
+                  </div>
+                  <div className={styles.amiPanelCol}>
+                    <span className={styles.amiColHead}>AMI ID</span>
+                    <span className={styles.amiColMono} title={activeVariant?.id}>{activeVariant?.id}</span>
+                  </div>
+                  <div className={styles.amiPanelCol}>
+                    <span className={styles.amiColHead}>Publish Date</span>
+                    <span className={styles.amiColVal}>{activeVariant?.published}</span>
+                  </div>
+                  <div className={styles.amiPanelCol}>
+                    <span className={styles.amiColHead}>Username</span>
+                    <span className={styles.amiColUser}>{activeVariant?.username}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Manual override */}
+            <div className={styles.launchField} style={{ marginTop: 16 }}>
+              <label className={styles.launchLabel}>AMI ID *</label>
+              <input
+                className={styles.launchInput}
+                value={form.imageId}
+                onChange={e => set('imageId', e.target.value)}
+                placeholder="ami-0abcdef1234567890"
+              />
+              <p className={styles.launchHint}>Auto-filled from the Quick Start selection above, or enter a custom AMI ID.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Instance type */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Instance type</div>
+          <div className={styles.launchSectionBody}>
+            <InstanceTypeSelector
+              value={form.instanceType}
+              onChange={v => set('instanceType', v)}
+              arch={currentArch}
+            />
+          </div>
+        </div>
+
+        {/* Key pair */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Key pair (login)</div>
+          <div className={styles.launchSectionBody}>
+            <div className={styles.launchField}>
+              <label className={styles.launchLabel}>
+                Key pair name <span className={styles.launchOptional}>(optional)</span>
+              </label>
+              <input
+                className={styles.launchInput}
+                value={form.keyName}
+                onChange={e => set('keyName', e.target.value)}
+                placeholder="my-key-pair"
+              />
+              <p className={styles.launchHint}>A key pair allows you to connect securely to your instance via SSH.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Number of instances */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Number of instances</div>
+          <div className={styles.launchSectionBody}>
+            <div className={styles.launchGrid2}>
+              <div className={styles.launchField}>
+                <label className={styles.launchLabel}>Min count</label>
+                <input
+                  className={styles.launchInput}
+                  type="number"
+                  min="1"
+                  value={form.minCount}
+                  onChange={e => set('minCount', e.target.value)}
+                  style={{ maxWidth: 140 }}
+                />
+              </div>
+              <div className={styles.launchField}>
+                <label className={styles.launchLabel}>Max count</label>
+                <input
+                  className={styles.launchInput}
+                  type="number"
+                  min="1"
+                  value={form.maxCount}
+                  onChange={e => set('maxCount', e.target.value)}
+                  style={{ maxWidth: 140 }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Network settings */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Network settings</div>
+          <div className={styles.launchSectionBody}>
+            {netLoading ? (
+              <p className={styles.launchHint}>Loading network resources…</p>
+            ) : (
+              <div className={styles.launchNetGrid}>
+                {/* VPC */}
+                <div className={styles.launchField}>
+                  <label className={styles.launchLabel}>VPC</label>
+                  <select
+                    className={styles.launchInput}
+                    value={form.vpcId}
+                    onChange={e => set('vpcId', e.target.value)}
+                  >
+                    <option value="">— No preference —</option>
+                    {vpcs.map(v => (
+                      <option key={v.VpcId} value={v.VpcId}>
+                        {v.VpcId}{v.IsDefault ? ' (default)' : ''}{v.CidrBlock ? ` — ${v.CidrBlock}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className={styles.launchHint}>Virtual private cloud where the instance will run.</p>
+                </div>
+
+                {/* Subnet */}
+                <div className={styles.launchField}>
+                  <label className={styles.launchLabel}>
+                    Subnet <span className={styles.launchOptional}>(optional)</span>
+                  </label>
+                  <select
+                    className={styles.launchInput}
+                    value={form.subnetId}
+                    onChange={e => set('subnetId', e.target.value)}
+                  >
+                    <option value="">— No preference —</option>
+                    {filteredSubnets.map(s => (
+                      <option key={s.SubnetId} value={s.SubnetId}>
+                        {s.SubnetId}{s.AvailabilityZone ? ` (${s.AvailabilityZone})` : ''}{s.CidrBlock ? ` — ${s.CidrBlock}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className={styles.launchHint}>
+                    {filteredSubnets.length === 0 && form.vpcId
+                      ? 'No subnets found for this VPC.'
+                      : 'Subnet within the selected VPC.'}
+                  </p>
+                </div>
+
+                {/* Auto-assign public IP */}
+                <div className={styles.launchField}>
+                  <label className={styles.launchLabel}>Auto-assign public IP</label>
+                  <div className={styles.launchRadioGroup}>
+                    {[{ val: true, label: 'Enable' }, { val: false, label: 'Disable' }].map(opt => (
+                      <label key={String(opt.val)} className={styles.launchRadioRow}>
+                        <input
+                          type="radio"
+                          name="publicIp"
+                          checked={form.associatePublicIp === opt.val}
+                          onChange={() => set('associatePublicIp', opt.val)}
+                          className={styles.launchRadio}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className={styles.launchHint}>Assigns a public IPv4 address from Amazon's pool.</p>
+                </div>
+
+                {/* Security Groups */}
+                <div className={`${styles.launchField} ${styles.launchFieldFull}`}>
+                  <label className={styles.launchLabel}>
+                    Firewall (security groups) <span className={styles.launchOptional}>(optional)</span>
+                  </label>
+                  {filteredSGs.length === 0 ? (
+                    <p className={styles.launchHint}>
+                      {form.vpcId ? 'No security groups found for this VPC.' : 'Select a VPC to filter security groups.'}
+                    </p>
+                  ) : (
+                    <div className={styles.launchSgList}>
+                      {filteredSGs.map(sg => (
+                        <label key={sg.GroupId} className={styles.launchSgRow}>
+                          <input
+                            type="checkbox"
+                            checked={selectedSGs.includes(sg.GroupId)}
+                            onChange={() => toggleSG(sg.GroupId)}
+                            className={styles.launchCheckbox}
+                          />
+                          <span className={styles.launchSgName}>{sg.GroupName}</span>
+                          <span className={styles.launchSgId}>{sg.GroupId}</span>
+                          {sg.Description && (
+                            <span className={styles.launchSgDesc}>{sg.Description}</span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {selectedSGs.length > 0 && (
+                    <p className={styles.launchHint}>{selectedSGs.length} group{selectedSGs.length !== 1 ? 's' : ''} selected.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Advanced details — User data */}
+        <div className={styles.launchSection}>
+          <div className={styles.launchSectionTitle}>Advanced details</div>
+          <div className={styles.launchSectionBody}>
+            <div className={styles.launchField}>
+              <div className={styles.launchLabelRow}>
+                <label className={styles.launchLabel}>
+                  User data <span className={styles.launchOptional}>(optional)</span>
+                </label>
+                {s3Buckets.length > 0 && (
+                  <div className={styles.launchS3Row}>
+                    <span className={styles.launchS3Label}>S3 bootstrap:</span>
+                    <select
+                      className={styles.launchInput}
+                      style={{ width: 'auto', fontSize: '0.8rem', padding: '3px 8px' }}
+                      defaultValue=""
+                      onChange={e => {
+                        const bucket = e.target.value
+                        if (!bucket) return
+                        const endpoint = 'http://localhost:4566'
+                        setUserData(
 `#!/bin/bash
 yum update -y
 yum install -y aws-cli
@@ -164,31 +818,45 @@ export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 aws s3 sync s3://${bucket}/ /home/ec2-user/s3-data/ --endpoint-url=${endpoint}
 echo "S3 sync complete" >> /var/log/bootstrap.log`
-                  )
-                }}
-              >
-                <option value="">— pick bucket —</option>
-                {s3Buckets.map(b => (
-                  <option key={b.Name} value={b.Name}>{b.Name}</option>
-                ))}
-              </select>
+                        )
+                      }}
+                    >
+                      <option value="">— pick bucket —</option>
+                      {s3Buckets.map(b => (
+                        <option key={b.Name} value={b.Name}>{b.Name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <textarea
+                className={styles.launchInput}
+                value={userData}
+                onChange={e => setUserData(e.target.value)}
+                placeholder={"#!/bin/bash\necho 'Hello, World!' > /tmp/hello.txt"}
+                rows={7}
+                style={{ fontFamily: 'monospace', fontSize: '0.78rem', resize: 'vertical' }}
+              />
+              <p className={styles.launchHint}>
+                Script runs on first boot. Select an S3 bucket above to auto-generate an S3 sync script.
+              </p>
             </div>
-          )}
+          </div>
         </div>
-        <textarea
-          className={styles.fieldInput}
-          value={userData}
-          onChange={e => setUserData(e.target.value)}
-          placeholder="#!/bin/bash&#10;echo 'Hello, World!' > /tmp/hello.txt"
-          rows={5}
-          style={{ fontFamily: 'monospace', fontSize: '0.78rem', resize: 'vertical' }}
-        />
-        <p style={{ color: '#8b949e', fontSize: '0.75rem', margin: '4px 0 0' }}>
-          Script runs on first boot. Select an S3 bucket above to auto-generate an S3 sync script.
-        </p>
-      </div>
-      {err && <p className={styles.fieldError}>{err}</p>}
-    </Modal>
+
+        {err && <p className={styles.launchErr}>{err}</p>}
+
+        {/* Sticky footer */}
+        <div className={styles.launchFooter}>
+          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy}>
+            {busy ? 'Launching…' : 'Launch instance'}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }
 
@@ -1112,6 +1780,20 @@ export default function EC2Console({ onBack, onNavigateTo }) {
 
   const currentSectionLabel = ALL_SECTIONS.find(s => s.key === section)?.label || ''
 
+  if (modal === 'launch') {
+    return (
+      <LaunchInstancePage
+        onClose={() => setModal(null)}
+        onDone={() => {
+          setModal(null)
+          if (section === 'dashboard') fetchDashboard()
+          else fetchSection('instances')
+        }}
+        showToast={showToast}
+      />
+    )
+  }
+
   return (
     <div className={styles.console}>
       {/* ── Sidebar ── */}
@@ -1216,19 +1898,6 @@ export default function EC2Console({ onBack, onNavigateTo }) {
       </div>
 
       {/* ── Modals ── */}
-      {modal === 'launch' && (
-        <LaunchInstanceModal
-          onClose={() => setModal(null)}
-          onDone={() => {
-            if (section === 'dashboard') {
-              fetchDashboard()
-            } else {
-              fetchSection('instances')
-            }
-          }}
-          showToast={showToast}
-        />
-      )}
       {modal === 'createKeypair' && (
         <CreateKeyPairModal
           onClose={() => setModal(null)}

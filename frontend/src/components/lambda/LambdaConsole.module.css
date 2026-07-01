@@ -695,6 +695,166 @@
   }
 }
 
+/* ─────────────────────────────────────
+   Creation method selector
+───────────────────────────────────── */
+.methodGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.methodCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border: 2px solid var(--lam-border, #2a2e38);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.12s, background 0.12s;
+  background: #0d1117;
+}
+
+.methodCard:hover {
+  border-color: #555;
+  background: var(--lam-hover-bg, #1a1f2b);
+}
+
+.methodCardActive {
+  border-color: var(--lam-orange, #f59e0b) !important;
+  background: #1e1a0f !important;
+}
+
+.methodIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.methodLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.methodSub {
+  font-size: 0.72rem;
+  color: var(--lam-text-muted, #7a8099);
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────────────
+   Blueprint section
+───────────────────────────────────── */
+.bpSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bpGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.bpGrid::-webkit-scrollbar { width: 4px; }
+.bpGrid::-webkit-scrollbar-thumb { background: #2a2e38; border-radius: 2px; }
+
+.bpCard {
+  background: #0d1117;
+  border: 1px solid var(--lam-border, #2a2e38);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.bpCard:hover {
+  border-color: #555;
+  background: var(--lam-hover-bg, #1a1f2b);
+}
+
+.bpCardActive {
+  border-color: var(--lam-orange, #f59e0b) !important;
+  background: #1e1a0f !important;
+}
+
+.bpCardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bpIcon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.bpCardTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bpName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--lam-orange, #f59e0b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bpCategory {
+  font-size: 0.68rem;
+  color: var(--lam-text-muted, #7a8099);
+}
+
+.bpCheck {
+  color: var(--lam-green, #22c55e);
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.bpDesc {
+  font-size: 0.75rem;
+  color: var(--lam-text, #d4d8e2);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.bpRuntime {
+  font-size: 0.68rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--lam-text-muted, #7a8099);
+  background: #1e2230;
+  padding: 1px 6px;
+  border-radius: 3px;
+  align-self: flex-start;
+}
+
+.bpEmpty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--lam-text-muted, #7a8099);
+  font-size: 0.82rem;
+  padding: 20px;
+  margin: 0;
+}
+
 /* ── Light mode overrides ─────────────────────── */
 :global([data-theme="light"]) .console { background: var(--c-bg); }
 :global([data-theme="light"]) .sidebar {
