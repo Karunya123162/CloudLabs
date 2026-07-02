@@ -62,25 +62,32 @@ function InstanceTypeCard({ it }) {
 function InstanceTypeSelector({ value, onChange, arch }) {
   const [open, setOpen] = useState(false)
   const [allGen, setAllGen] = useState(false)
-  const [search, setSearch] = useState('')
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 300 })
   const triggerRef = useRef(null)
 
-  // Close on outside click — only attached while open
-  useEffect(() => {
-    if (!open) return
-    const handler = () => setOpen(false)
-    document.addEventListener('click', handler)
-    return () => document.removeEventListener('click', handler)
-  }, [open])
-
-  const openDropdown = (e) => {
-    e.stopPropagation()
-    if (open) { setOpen(false); return }
+  const updatePos = useCallback(() => {
     if (triggerRef.current) {
       const r = triggerRef.current.getBoundingClientRect()
       setDropPos({ top: r.bottom + 4, left: r.left, width: r.width })
     }
+  }, [])
+
+  // Close on outside click; reposition on scroll — only while open
+  useEffect(() => {
+    if (!open) return
+    const closeHandler = () => setOpen(false)
+    document.addEventListener('click', closeHandler)
+    window.addEventListener('scroll', updatePos, true)
+    return () => {
+      document.removeEventListener('click', closeHandler)
+      window.removeEventListener('scroll', updatePos, true)
+    }
+  }, [open, updatePos])
+
+  const openDropdown = (e) => {
+    e.stopPropagation()
+    if (open) { setOpen(false); return }
+    updatePos()
     setOpen(true)
   }
 
@@ -88,7 +95,6 @@ function InstanceTypeSelector({ value, onChange, arch }) {
   const filtered = INSTANCE_TYPES.filter(it => {
     if (arch && it.arch !== arch) return false
     if (!allGen && oldFamilies.some(f => it.family === f)) return false
-    if (search && !it.id.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
@@ -117,23 +123,12 @@ function InstanceTypeSelector({ value, onChange, arch }) {
             style={{ top: dropPos.top, left: dropPos.left, width: dropPos.width }}
             onClick={e => e.stopPropagation()}
           >
-            <div className={styles.itDropdownHead}>
-              <input
-                className={styles.itSearch}
-                placeholder="Search instance types…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                autoFocus
-              />
-            </div>
             <div className={styles.itList}>
-              {filtered.length === 0
-                ? <p className={styles.itEmpty}>No instance types match.</p>
-                : filtered.map(it => (
+              {filtered.map(it => (
                   <div
                     key={it.id}
                     className={`${styles.itOption} ${it.id === value ? styles.itOptionActive : ''}`}
-                    onClick={() => { onChange(it.id); setOpen(false); setSearch('') }}
+                    onClick={() => { onChange(it.id); setOpen(false) }}
                   >
                     <InstanceTypeCard it={it} />
                   </div>
@@ -414,6 +409,22 @@ function LaunchInstancePage({ onClose, onDone, showToast }) {
     if (ami?.variants[0]) set('imageId', ami.variants[0].id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const isDirty = () =>
+    form.name.trim() !== '' ||
+    userData.trim() !== '' ||
+    form.keyName.trim() !== '' ||
+    form.vpcId !== '' ||
+    form.subnetId !== '' ||
+    selectedSGs.length > 0 ||
+    tags.some(t => t.key.trim() || t.value.trim())
+
+  const handleBack = () => {
+    if (isDirty()) {
+      if (!window.confirm('You have unsaved changes. Are you sure you want to go back?')) return
+    }
+    onClose()
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -848,7 +859,7 @@ echo "S3 sync complete" >> /var/log/bootstrap.log`
 
         {/* Sticky footer */}
         <div className={styles.launchFooter}>
-          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={onClose}>
+          <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={handleBack}>
             Cancel
           </button>
           <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={busy}>

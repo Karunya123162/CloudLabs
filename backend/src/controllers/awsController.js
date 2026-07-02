@@ -463,12 +463,10 @@ async function runInstances(req, res) {
     }
     if (keyName) params.KeyName = keyName
     if (userData) params.UserData = Buffer.from(userData).toString('base64')
-    if (subnetId || securityGroupIds?.length || associatePublicIpAddress !== undefined) {
-      const iface = { DeviceIndex: 0 }
-      if (subnetId) iface.SubnetId = subnetId
-      if (securityGroupIds?.length) iface.Groups = securityGroupIds
-      if (associatePublicIpAddress !== undefined) iface.AssociatePublicIpAddress = Boolean(associatePublicIpAddress)
-      params.NetworkInterfaces = [iface]
+    if (subnetId) params.SubnetId = subnetId
+    if (securityGroupIds?.length) params.SecurityGroupIds = securityGroupIds
+    if (subnetId && associatePublicIpAddress !== undefined) {
+      params.AssociatePublicIpAddress = Boolean(associatePublicIpAddress)
     }
     const tagList = []
     if (name) tagList.push({ Key: 'Name', Value: name })
