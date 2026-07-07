@@ -12,6 +12,7 @@ const {
   GetBucketOwnershipControlsCommand, PutBucketOwnershipControlsCommand,
   GetObjectLockConfigurationCommand, PutObjectLockConfigurationCommand,
   GetBucketNotificationConfigurationCommand, PutBucketNotificationConfigurationCommand,
+  GetBucketLocationCommand,
 } = require('@aws-sdk/client-s3')
 const {
   DescribeInstancesCommand, DescribeInstanceStatusCommand,
@@ -92,6 +93,7 @@ const {
 } = require('@aws-sdk/client-cloudwatch')
 const { s3Client, ec2Client, lambdaClient, iamClient, cloudwatchClient, endpoint } = require('../config/awsClients')
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
+const pool = require('../config/db')
 
 async function health(req, res) {
   try {
@@ -102,10 +104,40 @@ async function health(req, res) {
   }
 }
 
+// Filter a list of S3 buckets down to those tracked in the database for a given region.
+// Falls back to returning them all if the database lookup fails.
+async function filterBucketsByRegion(buckets, region) {
+  try {
+    const { rows } = await pool.query('SELECT name FROM buckets WHERE region = $1', [region])
+    const trackedBuckets = new Set(rows.map(r => r.name))
+    return (buckets || []).filter(b => trackedBuckets.has(b.Name))
+  } catch (dbErr) {
+    console.error('Database query failed:', dbErr.message)
+    return buckets || []
+  }
+}
+
+// Filter a list of S3 buckets down to those actually located in a region, asking
+// floci directly (via GetBucketLocationCommand) instead of the database. Used by
+// CloudShell so the CLI reflects floci's own bucket state.
+async function filterBucketsByRegionViaFloci(buckets, region) {
+  const withRegion = await Promise.all((buckets || []).map(async (b) => {
+    try {
+      const { LocationConstraint } = await s3Client.send(new GetBucketLocationCommand({ Bucket: b.Name }))
+      return { bucket: b, region: LocationConstraint || 'us-east-1' }
+    } catch (err) {
+      console.error(`get-bucket-location failed for ${b.Name}:`, err.message)
+      return { bucket: b, region: 'us-east-1' }
+    }
+  }))
+  return withRegion.filter(entry => entry.region === region).map(entry => entry.bucket)
+}
+
 async function listBuckets(req, res) {
   try {
-    const { Buckets } = await s3Client.send(new ListBucketsCommand({}))
-    res.json({ Buckets: Buckets || [] })
+    const region = req.query.region || 'us-east-1'
+    const { Buckets: allBuckets } = await s3Client.send(new ListBucketsCommand({}))
+    res.json({ Buckets: await filterBucketsByRegion(allBuckets, region) })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -122,7 +154,22 @@ async function createBucket(req, res) {
     }
     if (objectLock) params.ObjectLockEnabledForBucket = true
     await s3Client.send(new CreateBucketCommand(params))
-    res.json({ message: `Bucket "${name}" created successfully in ${region}` })
+    
+    // Apply dual-layer server-side encryption by default: AES256 + Bucket Key enabled
+    await s3Client.send(new PutBucketEncryptionCommand({
+      Bucket: name,
+      ServerSideEncryptionConfiguration: {
+        Rules: [{
+          ApplyServerSideEncryptionByDefault: { SSEAlgorithm: 'AES256' },
+          BucketKeyEnabled: true,
+        }],
+      },
+    }))
+    
+    // Store bucket information in database
+    await pool.query('INSERT INTO buckets (name, region) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET region = $2', [name, region])
+    
+    res.json({ message: `Bucket "${name}" created successfully in ${region} with dual-layer encryption enabled` })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -172,6 +219,10 @@ async function deleteBucket(req, res) {
 
     /* 3. Now the bucket is empty — delete it */
     await s3Client.send(new DeleteBucketCommand({ Bucket: name }))
+    
+    /* 4. Remove bucket from database */
+    await pool.query('DELETE FROM buckets WHERE name = $1', [name])
+    
     res.json({ message: `Bucket "${name}" deleted` })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -1232,7 +1283,8 @@ async function disableAlarm(req, res) {
 }
 
 async function cliCommand(req, res) {
-  const raw = (req.body.command || '').trim()
+  const raw    = (req.body.command || '').trim()
+  const region = req.body.region || 'us-east-1'
   if (!raw) return res.json({ output: '', exitCode: 0 })
 
   // built-ins handled on frontend; just in case
@@ -1258,6 +1310,18 @@ async function cliCommand(req, res) {
 
   const fmt = (obj) => JSON.stringify(obj, null, 2)
 
+  // A bucket's region comes from an explicit --create-bucket-configuration or
+  // --region flag on the command itself, if present, else the CLI's ambient region.
+  const bucketRegion = (() => {
+    const cbc = flags['create-bucket-configuration']
+    if (typeof cbc === 'string') {
+      const m = cbc.match(/LocationConstraint=([^\s,]+)/)
+      if (m) return m[1]
+    }
+    if (typeof flags['region'] === 'string') return flags['region']
+    return region
+  })()
+
   try {
     let output = ''
 
@@ -1272,7 +1336,8 @@ async function cliCommand(req, res) {
         const target = args[3]
         if (!target) {
           const { Buckets } = await s3Client.send(new ListBucketsCommand({}))
-          output = (Buckets || []).map(b => {
+          const scoped = await filterBucketsByRegionViaFloci(Buckets, region)
+          output = scoped.map(b => {
             const d = new Date(b.CreationDate).toISOString().replace('T', ' ').slice(0, 19)
             return `${d}  ${b.Name}`
           }).join('\n') || '(no buckets)'
@@ -1293,7 +1358,9 @@ async function cliCommand(req, res) {
       } else if (subcommand === 'mb') {
         const name = (args[3] || '').replace(/^s3:\/\//, '')
         if (!name) return res.json({ output: 'Usage: aws s3 mb s3://<bucket>', exitCode: 1 })
-        await s3Client.send(new CreateBucketCommand({ Bucket: name }))
+        const mbParams = { Bucket: name }
+        if (bucketRegion !== 'us-east-1') mbParams.CreateBucketConfiguration = { LocationConstraint: bucketRegion }
+        await s3Client.send(new CreateBucketCommand(mbParams))
         output = `make_bucket: ${name}`
       } else if (subcommand === 'rb') {
         const name = (args[3] || '').replace(/^s3:\/\//, '')
@@ -1317,11 +1384,13 @@ async function cliCommand(req, res) {
     else if (service === 's3api') {
       if (subcommand === 'list-buckets') {
         const { Buckets } = await s3Client.send(new ListBucketsCommand({}))
-        output = fmt({ Buckets: Buckets || [] })
+        output = fmt({ Buckets: await filterBucketsByRegionViaFloci(Buckets, region) })
       } else if (subcommand === 'create-bucket') {
         const b = flags['bucket']
         if (!b) return res.json({ output: 'Missing --bucket', exitCode: 1 })
-        await s3Client.send(new CreateBucketCommand({ Bucket: b }))
+        const cbParams = { Bucket: b }
+        if (bucketRegion !== 'us-east-1') cbParams.CreateBucketConfiguration = { LocationConstraint: bucketRegion }
+        await s3Client.send(new CreateBucketCommand(cbParams))
         output = fmt({ Location: `/${b}` })
       } else if (subcommand === 'delete-bucket') {
         const b = flags['bucket']
@@ -1373,6 +1442,33 @@ async function cliCommand(req, res) {
         if (!b) return res.json({ output: 'Missing --bucket', exitCode: 1 })
         const { Versions, DeleteMarkers } = await s3Client.send(new ListObjectVersionsCommand({ Bucket: b }))
         output = fmt({ Versions: Versions || [], DeleteMarkers: DeleteMarkers || [] })
+      } else if (subcommand === 'get-bucket-location') {
+        const b = flags['bucket']
+        if (!b) return res.json({ output: 'Missing --bucket', exitCode: 1 })
+        const { LocationConstraint } = await s3Client.send(new GetBucketLocationCommand({ Bucket: b }))
+        output = fmt({ LocationConstraint: LocationConstraint || 'us-east-1' })
+      } else if (subcommand === 'get-bucket-encryption') {
+        const b = flags['bucket']
+        if (!b) return res.json({ output: 'Missing --bucket', exitCode: 1 })
+        try {
+          const { ServerSideEncryptionConfiguration } = await s3Client.send(new GetBucketEncryptionCommand({ Bucket: b }))
+          output = fmt({ ServerSideEncryptionConfiguration })
+        } catch (e) {
+          output = e.name === 'ServerSideEncryptionConfigurationNotFoundError'
+            ? '(no default encryption configured)'
+            : `Error: ${e.message}`
+        }
+      } else if (subcommand === 'get-public-access-block') {
+        const b = flags['bucket']
+        if (!b) return res.json({ output: 'Missing --bucket', exitCode: 1 })
+        try {
+          const { PublicAccessBlockConfiguration } = await s3Client.send(new GetPublicAccessBlockCommand({ Bucket: b }))
+          output = fmt({ PublicAccessBlockConfiguration })
+        } catch (e) {
+          output = e.name === 'NoSuchPublicAccessBlockConfiguration'
+            ? '(no public access block configured)'
+            : `Error: ${e.message}`
+        }
       } else {
         return res.json({ output: `Unknown s3api command: ${subcommand}`, exitCode: 1 })
       }

@@ -82,6 +82,7 @@ function CreateBucketModal({ onClose, onCreate, existingBuckets = [] }) {
   const [copyMsg,      setCopyMsg]      = useState(null)
   const [busy,         setBusy]         = useState(false)
   const [err,          setErr]          = useState('')
+  const [showEncryptionInfo, setShowEncryptionInfo] = useState(false)
   const inputRef = useRef(null)
   useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -323,23 +324,144 @@ function CreateBucketModal({ onClose, onCreate, existingBuckets = [] }) {
 
             {/* ── Default encryption ── */}
             <CBSection title="Default encryption">
-              <div className={styles.fieldGroup}>
-                <div className={styles.fieldLabel}>Encryption type</div>
-                <CBRadio name="enc" value="AES256"  checked={encryption === 'AES256'}  onChange={setEncryption}
-                  label="SSE-S3 — Server-side encryption with Amazon S3 managed keys (Recommended)"
-                  desc="Amazon S3 encrypts your objects before saving them and decrypts them when you download them." />
-                <CBRadio name="enc" value="aws:kms" checked={encryption === 'aws:kms'} onChange={setEncryption}
-                  label="SSE-KMS — Server-side encryption with AWS Key Management Service keys"
-                  desc="Protect your data using keys stored in AWS KMS. Additional charges may apply." />
+              <div className={styles.cbWarnBox} style={{ borderLeft: '4px solid #0073bb', backgroundColor: '#e8f4f8', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px', display: 'inline' }}>
+                    <circle cx="12" cy="12" r="10" stroke="#0073bb" strokeWidth="1.5"/>
+                    <line x1="12" y1="8" x2="12" y2="12" stroke="#0073bb" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="12" cy="16" r="0.5" fill="#0073bb" stroke="#0073bb"/>
+                  </svg>
+                  <span><strong>Dual-layer encryption enabled by default</strong><br/>SSE-S3 with Amazon S3 managed keys + S3 Bucket Key for enhanced protection</span>
+                </div>
+                <button 
+                  type="button" 
+                  className={styles.cbInfoBtn}
+                  onClick={() => setShowEncryptionInfo(true)}
+                  style={{ marginLeft: '12px', whiteSpace: 'nowrap', cursor: 'pointer', background: '#0073bb', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '3px', fontSize: '12px' }}
+                >
+                  Learn more
+                </button>
               </div>
-              <div className={styles.fieldGroup}>
-                <div className={styles.fieldLabel}>Bucket Key</div>
-                <CBRadio name="bkey" value="disable" checked={bucketKey === 'disable'} onChange={setBucketKey} label="Disable" />
-                <CBRadio name="bkey" value="enable"  checked={bucketKey === 'enable'}  onChange={setBucketKey}
-                  label="Enable (Recommended)"
-                  desc="Reduce the cost of SSE-KMS by decreasing request traffic from S3 to AWS KMS." />
+              <div className={styles.cbSectionNote}>
+                Your bucket will automatically use server-side encryption with Amazon S3 managed keys and S3 Bucket Key enabled. This provides an additional layer of encryption and reduces SSE request costs.
               </div>
             </CBSection>
+
+            {/* Encryption Info Modal */}
+            {showEncryptionInfo && (
+              <div className={styles.overlay} onClick={() => setShowEncryptionInfo(false)}>
+                <div className={styles.cbModal} onClick={e => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+                  <div className={styles.cbHead}>
+                    <h2 className={styles.cbTitle}>S3 Encryption Options</h2>
+                    <button className={styles.modalClose} onClick={() => setShowEncryptionInfo(false)}>✕</button>
+                  </div>
+                  <div className={styles.cbBody}>
+                    {/* Current Default */}
+                    <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#e8f4f8', borderRadius: '4px', borderLeft: '4px solid #0073bb' }}>
+                      <h3 style={{ margin: '0 0 8px 0', color: '#0073bb', fontSize: '14px', fontWeight: 'bold' }}>✓ Your Choice: SSE-S3 (Recommended)</h3>
+                      <p style={{ margin: '0', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <strong>Server-Side Encryption with Amazon S3 Managed Keys</strong><br/>
+                        All objects in your bucket are encrypted using AES-256 encryption. AWS manages all the keys for you, automatically. This is the simplest and most cost-effective option for most use cases.
+                      </p>
+                      <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <li>Encryption and decryption handled automatically by S3</li>
+                        <li>No key management required</li>
+                        <li>No additional charges</li>
+                        <li>Perfect for most applications</li>
+                      </ul>
+                    </div>
+
+                    {/* S3 Bucket Key */}
+                    <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f0f8f4', borderRadius: '4px', borderLeft: '4px solid #228B22' }}>
+                      <h3 style={{ margin: '0 0 8px 0', color: '#228B22', fontSize: '14px', fontWeight: 'bold' }}>✓ Enabled: S3 Bucket Key</h3>
+                      <p style={{ margin: '0', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <strong>Reduces Encryption Costs & Adds Extra Protection Layer</strong><br/>
+                        S3 Bucket Keys generate short-term keys from your S3 bucket-level key, reducing traffic to AWS Key Management Service and encryption processing overhead.
+                      </p>
+                      <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <li>Reduces SSE-S3 request costs by up to 50%</li>
+                        <li>Lower AWS KMS API call volume</li>
+                        <li>Faster encryption/decryption operations</li>
+                        <li>Compatible with all S3 features</li>
+                      </ul>
+                    </div>
+
+                    {/* SSE-KMS Alternative */}
+                    <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '4px', borderLeft: '4px solid #666' }}>
+                      <h3 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px', fontWeight: 'bold' }}>Alternative: SSE-KMS (AWS Key Management Service)</h3>
+                      <p style={{ margin: '0', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <strong>Server-Side Encryption with Customer Master Keys</strong><br/>
+                        Use AWS KMS to manage your encryption keys. This gives you more control over key access, rotation, and audit logging.
+                      </p>
+                      <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '13px', lineHeight: '1.6', color: '#333' }}>
+                        <li><strong>Pros:</strong> Full control over encryption keys, audit trail, key rotation policies</li>
+                        <li><strong>Cons:</strong> Additional AWS KMS costs, potential performance impact</li>
+                        <li><strong>Best for:</strong> High-security requirements, compliance standards (HIPAA, PCI)</li>
+                        <li><strong>How to:</strong> Change encryption settings after bucket creation → S3 bucket properties</li>
+                      </ul>
+                    </div>
+
+                    {/* Comparison Table */}
+                    <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#fafafa', borderRadius: '4px', overflow: 'x' }}>
+                      <h3 style={{ margin: '0 0 12px 0', fontSize: '13px', fontWeight: 'bold', color: '#333' }}>Quick Comparison</h3>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#f0f0f0' }}>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>Feature</th>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>SSE-S3 (Your Choice)</th>
+                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: 'bold' }}>SSE-KMS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr style={{ borderBottom: '1px solid #ddd' }}>
+                            <td style={{ padding: '8px' }}>Cost</td>
+                            <td style={{ padding: '8px' }}>None</td>
+                            <td style={{ padding: '8px' }}>Per API call (~$0.03/10K)</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid #ddd' }}>
+                            <td style={{ padding: '8px' }}>Key Management</td>
+                            <td style={{ padding: '8px' }}>AWS Managed</td>
+                            <td style={{ padding: '8px' }}>Customer Managed</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid #ddd' }}>
+                            <td style={{ padding: '8px' }}>Audit Trail</td>
+                            <td style={{ padding: '8px' }}>Basic</td>
+                            <td style={{ padding: '8px' }}>Full CloudTrail</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid #ddd' }}>
+                            <td style={{ padding: '8px' }}>Key Rotation</td>
+                            <td style={{ padding: '8px' }}>Annual</td>
+                            <td style={{ padding: '8px' }}>Custom</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid #ddd' }}>
+                            <td style={{ padding: '8px' }}>Performance</td>
+                            <td style={{ padding: '8px' }}>Optimized</td>
+                            <td style={{ padding: '8px' }}>Slightly slower</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: '8px' }}>Best For</td>
+                            <td style={{ padding: '8px' }}>Most use cases</td>
+                            <td style={{ padding: '8px' }}>Compliance & control</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Note */}
+                    <div style={{ padding: '12px', backgroundColor: '#fff8e6', borderRadius: '4px', borderLeft: '4px solid #ff9800' }}>
+                      <p style={{ margin: '0', fontSize: '12px', lineHeight: '1.6', color: '#666' }}>
+                        <strong>Note:</strong> You can change encryption settings after bucket creation anytime. Go to bucket properties → Edit default encryption to switch between SSE-S3 and SSE-KMS.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles.cbFoot}>
+                    <button type="button" className={styles.btnOrange} onClick={() => setShowEncryptionInfo(false)}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Advanced settings ── */}
             <CBSection title="Advanced settings">
@@ -2704,6 +2826,7 @@ function BucketNamespace({ bucket, bucketData }) {
 }
 
 export default function S3Console({ onBack, onNavigateTo }) {
+  const { region } = useRegion()
   const [buckets, setBuckets]               = useState([])
   const [openBucket, setOpenBucket]         = useState(null)
   const [objects, setObjects]               = useState([])
@@ -2726,11 +2849,11 @@ export default function S3Console({ onBack, onNavigateTo }) {
   const loadBuckets = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      const { data } = await api.get('/aws/s3/buckets')
+      const { data } = await api.get('/aws/s3/buckets', { params: { region: region?.code || 'us-east-1' } })
       setBuckets(data.Buckets || [])
     } catch { setError('Failed to load buckets.') }
     finally { setLoading(false) }
-  }, [])
+  }, [region])
 
   const loadObjects = useCallback(async (bucket) => {
     setLoading(true); setError('')

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
+import { useRegion } from '../context/RegionContext'
 import styles from './CloudShell.module.css'
 
 /* ─────────────────────────────────────────
@@ -27,6 +28,9 @@ const HELP_GROUPS = [
       { cmd: 'aws s3api get-bucket-versioning --bucket <name>',   desc: 'Get versioning' },
       { cmd: 'aws s3api get-bucket-policy --bucket <name>',       desc: 'Get bucket policy' },
       { cmd: 'aws s3api list-object-versions --bucket <name>',    desc: 'List versions' },
+      { cmd: 'aws s3api get-bucket-location --bucket <name>',     desc: 'Get bucket region' },
+      { cmd: 'aws s3api get-bucket-encryption --bucket <name>',   desc: 'Get default encryption' },
+      { cmd: 'aws s3api get-public-access-block --bucket <name>', desc: 'Get public access block' },
     ],
   },
   {
@@ -133,13 +137,14 @@ function toLineRecords(type, text) {
 /* ─────────────────────────────────────────
    Component
 ───────────────────────────────────────── */
-const BOOT_MSGS = [
-  { text: 'Connecting to CloudShell…',          delay: 0    },
-  { text: 'Authenticating session…',             delay: 500  },
-  { text: 'Starting environment in us-east-1…', delay: 950  },
-  { text: 'Attaching storage…',                 delay: 1350 },
-  { text: 'Environment ready.',                 delay: 1700 },
+const bootMsgs = (regionCode) => [
+  { text: 'Connecting to CloudShell…',              delay: 0    },
+  { text: 'Authenticating session…',                 delay: 500  },
+  { text: `Starting environment in ${regionCode}…`, delay: 950  },
+  { text: 'Attaching storage…',                     delay: 1350 },
+  { text: 'Environment ready.',                     delay: 1700 },
 ]
+const BOOT_MSG_COUNT = 5
 
 const EXIT_MSGS = [
   { text: 'Saving session state…', delay: 0   },
@@ -148,6 +153,8 @@ const EXIT_MSGS = [
 ]
 
 export default function CloudShell({ onClose }) {
+  const { region } = useRegion()
+  const regionCode = region?.code || 'us-east-1'
   const [connecting,  setConnecting]  = useState(true)
   const [exiting,     setExiting]     = useState(false)
   const [bootLines,   setBootLines]   = useState([])
@@ -164,13 +171,14 @@ export default function CloudShell({ onClose }) {
 
   /* ── Boot sequence ── */
   useEffect(() => {
-    const timers = BOOT_MSGS.map(({ text, delay }) =>
+    const msgs = bootMsgs(regionCode)
+    const timers = msgs.map(({ text, delay }) =>
       setTimeout(() => setBootLines(prev => [...prev, text]), delay)
     )
     const done = setTimeout(() => {
       setConnecting(false)
       setLines([
-        { type: 'info', text: 'CloudLabs CloudShell  ·  us-east-1' },
+        { type: 'info', text: `CloudLabs CloudShell  ·  ${regionCode}` },
         { type: 'info', text: 'Type  help  for available commands.' },
         { type: 'info', text: '' },
       ])
@@ -240,7 +248,7 @@ export default function CloudShell({ onClose }) {
     /* send to backend */
     setBusy(true)
     try {
-      const { data } = await api.post('/aws/cli', { command: cmd })
+      const { data } = await api.post('/aws/cli', { command: cmd, region: regionCode })
       if (data.output) {
         emit(data.exitCode === 0 ? 'out' : 'err', data.output)
       } else if (data.exitCode === 0) {
@@ -339,13 +347,13 @@ export default function CloudShell({ onClose }) {
           <div className={styles.bootBox}>
             <div className={styles.bootLogo}>
               <span className={styles.bootPrompt}>cloudlabs:~&nbsp;$&nbsp;</span>
-              <span className={styles.bootCmd}>cloudshell --region us-east-1</span>
+              <span className={styles.bootCmd}>cloudshell --region {regionCode}</span>
             </div>
             <div className={styles.bootLines}>
               {bootLines.map((msg, i) => (
                 <div key={i} className={styles.bootLine}>
-                  <span className={`${styles.bootIcon} ${i === bootLines.length - 1 && bootLines.length === BOOT_MSGS.length ? styles.bootIconDone : styles.bootIconSpin}`}>
-                    {i === bootLines.length - 1 && bootLines.length === BOOT_MSGS.length ? '✓' : '⟳'}
+                  <span className={`${styles.bootIcon} ${i === bootLines.length - 1 && bootLines.length === BOOT_MSG_COUNT ? styles.bootIconDone : styles.bootIconSpin}`}>
+                    {i === bootLines.length - 1 && bootLines.length === BOOT_MSG_COUNT ? '✓' : '⟳'}
                   </span>
                   <span>{msg}</span>
                 </div>
@@ -365,7 +373,7 @@ export default function CloudShell({ onClose }) {
           <span className={styles.dot} style={{ background: '#febc2e' }} />
           <span className={styles.dot} style={{ background: '#28c840' }} />
         </div>
-        <span className={styles.barTitle}>CloudShell — us-east-1</span>
+        <span className={styles.barTitle}>CloudShell — {regionCode}</span>
         <div className={styles.barRight}>
           {busy && <span className={styles.spinner} />}
           <span className={styles.shortcuts}>Tab · ↑↓ · Ctrl+C · Ctrl+L</span>
@@ -385,7 +393,7 @@ export default function CloudShell({ onClose }) {
           if (line.type === 'help') {
             return (
               <div key={i} className={styles.helpBlock}>
-                <div className={styles.helpTitle}>CloudLabs CloudShell  ·  us-east-1</div>
+                <div className={styles.helpTitle}>CloudLabs CloudShell  ·  {regionCode}</div>
                 {HELP_GROUPS.map(g => (
                   <div key={g.title} className={styles.helpGroup}>
                     <div className={styles.helpGroupTitle}>{g.title}</div>
